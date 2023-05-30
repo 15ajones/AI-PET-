@@ -85,7 +85,7 @@ class PET:
         while True:
             if not GPIO.input(18):#replace with wherever the button is
                 #button has been pressed
-                self.increase_happiness_level(1.0)
+                self.increase_happiness_level(0.2)
                 if(self.petState == 0 or self.petState == 3):
                     self.petState = 1
                 time.sleep(1)
@@ -110,7 +110,6 @@ class PET:
                 #will change to 30mins?
                 if(self.weather.currentWeather != self.weather.previousWeather):#will probably be an interupt instead that is called when there is a change
                     weatherEffect = self.weather.getWeatherEffect()
-                    print("current weather, current weather effect: ", self.weather.currentWeather, weatherEffect)
                     self.increase_happiness_level(weatherEffect)
                     self.weather.previousWeather = self.weather.currentWeather
 
@@ -141,13 +140,13 @@ class PET:
         #save this audio to a file
         #translate the audio file into text
         #save text in self.lastAudioInput
-        self.increase_happiness_level(1.0);#assuming this is after listening for 10 seconds
+        self.increase_happiness_level(0.2);#assuming this is after listening for 10 seconds
 
     def replyState(self): #kihyun
         #takes the self.lastAudioInput
         #translates to audio and save as a file
         #play the audio via the speaker
-        self.increase_happiness_level(1.0);#is this needed
+        self.increase_happiness_level(0.2);#is this needed
 
     def seekAttentionState(self): #kihyun
         #seeks attention
