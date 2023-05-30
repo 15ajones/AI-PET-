@@ -15,31 +15,10 @@ import json
 from PIL import Image
 import pyttsx3
 import gtts
+from weather import Weather
 #THINK ABOUT EMAILING OR SOMETHING, AS MOST OLD PEOPLE USE EMAIL
 
-class PET:
-    class WEATHER:
-        def __init__(self):
-            self.currentWeather = "default"
-            self.previousWeather = self.currentWeather
-            self.previousWeatherEffect = 0.0
-            #weather types = "default", "sunny", "rainy", "thunder" for now**
-        def getWeather(self):
-            #here would be the call to the api to get the current weather
-            pass
-        def getWeatherEffect(self):
-            def weatherEffectChange(weatherVal):
-                weatherEffect = weatherVal - self.previousWeatherEffect
-                self.previousWeatherEffect = weatherVal
-                return weatherEffect
-            if self.currentWeather == "default":
-                return weatherEffectChange(0.0)
-            elif self.currentWeather == "sunny":
-                return weatherEffectChange(1.0)
-            elif self.currentWeather == "rainy":
-                return weatherEffectChange(-1.0)
-            elif self.currentWeather == "thunder":
-                return weatherEffectChange(-2.0)
+class Pet:
 
     def __init__(self):
         self.petState = 0
@@ -47,7 +26,7 @@ class PET:
         #1 is listening (goes to either state 0 or 2)
         #2 is replying (goes to either 0 or 1)
         #3 is seeking attention (goes to either 0 or 1)
-        self.weather = self.WEATHER()
+        self.weather = self.Weather()
         self.happinessLevel = 10.0
         #happiness level is minimum 0, maximum 10 (different emotion face for every 2 levels, so we need 5 emotion faces)
         #below happiness level of 5, the pet begins to seek attention
