@@ -40,15 +40,16 @@ class Pet:
 
         self.seekattention_text = "Hi, Where are you?" # When the state becomes seekattention_state, NOVA speaks seekattention_text
     
+
+
+
+    # ------------ HAPPINESS LEVEL CODE --------------------------------------------------------------
     def increase_happiness_level(self,increaseValue): 
-        self.happinessLevel += increaseValue
-        if self.happinessLevel > 10.0:
-            self.happinessLevel = 10.0
+        self.happinessLevel = min(10, self.happinessLevel + increaseValue)
 
     def decrease_happiness_level(self,decreaseValue):
-        self.happinessLevel -= decreaseValue
-        if self.happinessLevel < 0.0:
-            self.happinessLevel = 0.0
+        self.happinessLevel = max(0, self.happinessLevel - decreaseValue)
+    # ------------------------------------------------------------------------------------------------
 
 
     #------------CODE FOR ANY THREADS WHICH RUN CONSTANTLY--------------------------------------------------------------------------
@@ -77,35 +78,35 @@ class Pet:
             # 4. update happiness level (based on time since last interaction) y
             # 5. based on happiness level maybe switch to the seek attention state y
             
-            while self.petState == 0:
+         
 
-                time.sleep(1)#need to change this (threading) so that it is not blocking
-                #will change to 30mins?
-                if(self.weather.currentWeather != self.weather.previousWeather):#will probably be an interupt instead that is called when there is a change
-                    weatherEffect = self.weather.getWeatherEffect()
-                    self.increase_happiness_level(weatherEffect)
-                    self.weather.previousWeather = self.weather.currentWeather
+        time.sleep(1)#need to change this (threading) so that it is not blocking
+        #will change to 30mins?
+        if(self.weather.currentWeather != self.weather.previousWeather):#will probably be an interrupt instead that is called when there is a change
+            weatherEffect = self.weather.getWeatherEffect()
+            self.increase_happiness_level(weatherEffect)
+            self.weather.previousWeather = self.weather.currentWeather
 
-                self.decrease_happiness_level(1.0)
-                print("Happiness decreased. Current happiness level:", self.happinessLevel)
-                #self.weather.changeWeather() #for testing
-                #WILL VARY PROBABILITIES BASED ON CAT OR DOG
-                #MAKE FUNCTION TO EASILY CALCULATE PROBABILITIES
-                if self.happinessLevel < 1.0:
-                    if random.random() < 0.2:
-                        self.petState = 3
-                elif self.happinessLevel < 2.0:
-                    if random.random() < 0.4:
-                        self.petState = 3
-                elif self.happinessLevel < 3.0:
-                    if random.random() < 0.8:
-                        self.petState = 3
-                elif self.happinessLevel < 4.0:
-                    if random.random() < 0.5:
-                        self.petState = 3
-                elif self.happinessLevel < 5.0:
-                    if random.random() < 0.3:
-                        self.petState = 3
+        self.decrease_happiness_level(1.0)
+        print("Happiness decreased. Current happiness level:", self.happinessLevel)
+        #self.weather.changeWeather() #for testing
+        #WILL VARY PROBABILITIES BASED ON CAT OR DOG
+        #MAKE FUNCTION TO EASILY CALCULATE PROBABILITIES
+        if self.happinessLevel < 1.0:
+            if random.random() < 0.2:
+                self.petState = 3
+        elif self.happinessLevel < 2.0:
+            if random.random() < 0.4:
+                self.petState = 3
+        elif self.happinessLevel < 3.0:
+            if random.random() < 0.8:
+                self.petState = 3
+        elif self.happinessLevel < 4.0:
+            if random.random() < 0.5:
+                self.petState = 3
+        elif self.happinessLevel < 5.0:
+            if random.random() < 0.3:
+                self.petState = 3
 
 
     def listenState(self): #kihyun
@@ -151,7 +152,7 @@ class Pet:
         wf.writeframes(b''.join(frames))
         wf.close()
         self.increase_happiness_level(0.2) #assuming this is after listening for 10 seconds
-        pass
+        self.processingState(self) #go straight to processing
 
 
     def processingState(self): #kihyun
@@ -173,6 +174,7 @@ class Pet:
         #    print("Could not request results from Google Speech Recognition service; {0}".format(e))
 
         except:
+            print("couldn't translate audio to text")
             pass
 
 
@@ -219,16 +221,17 @@ class Pet:
     #-----------------------------------------------------------------------------------------------------------------------------------         
 
 
-    # ------MAIN------
-    def main(self):
-        print(self.petState)
-        while True:
-            if self.petState == 0:
-                self.idleState()
-            if self.petState == 1:
-                self.listenState()
-            if self.petState == 2:
-                self.replyState()
-            if self.petState == 3:
-                self.seekAttentionState()
+# ------MAIN------
+def __main__():
+    programPet = Pet()
+    print(programPet.petState)
+    while True:
+        if programPet.petState == 0:
+            programPet.idleState()
+        if programPet.petState == 1:
+            programPet.listenState()
+        if programPet.petState == 2:
+            programPet.replyState()
+        if programPet.petState == 3:
+            programPet.seekAttentionState()
    
