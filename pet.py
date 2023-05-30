@@ -13,7 +13,9 @@ import uuid
 import os
 import json
 from PIL import Image
-
+import pyttsx3
+import gtts
+#THINK ABOUT EMAILING OR SOMETHING, AS MOST OLD PEOPLE USE EMAIL
 
 class PET:
     class WEATHER:
@@ -25,16 +27,6 @@ class PET:
         def getWeather(self):
             #here would be the call to the api to get the current weather
             pass
-       # def changeWeather(self): #FUNCTION USED FOR TESTING
-        #    self.previousWeather = self.currentWeather;
-         #   if self.currentWeather == "default":
-          #      self.currentWeather = "sunny"
-          #  elif self.currentWeather == "sunny":
-           #    self.currentWeather = "rainy"
-           # elif self.currentWeather == "rainy":
-           #    self.currentWeather = "thunder"
-           # elif self.currentWeather == "thunder":
-           #    self.currentWeather = "default"
         def getWeatherEffect(self):
             def weatherEffectChange(weatherVal):
                 weatherEffect = weatherVal - self.previousWeatherEffect
@@ -64,9 +56,11 @@ class PET:
         self.animalType = "dog" #we are assuming its dog for now, but we can eventually change this to also include cat
 
         self.lastAudioInput = ""
+
+        self.reply_text = "Hello, My name is NOVA. How can I help you today?" # Default reply text for replystate.
+
+        self.seekattention_text = "Hi, Where are you?" # When the state becomes seekattention_state, NOVA speaks seekattention_text
     
-    
-    #also need to include when being stroked?
     def increase_happiness_level(self,increaseValue): 
         self.happinessLevel += increaseValue
         if self.happinessLevel > 10.0:
@@ -134,25 +128,114 @@ class PET:
                     if random.random() < 0.3:
                         self.petState = 3
 
+
     def listenState(self): #kihyun
         #in this function you:
         #listen for 10 seconds using mic
         #save this audio to a file
         #translate the audio file into text
         #save text in self.lastAudioInput
-        self.increase_happiness_level(0.2);#assuming this is after listening for 10 seconds
+        #save this audio to a file called 'audio.wav'
+
+        #----------------------------------------------------------------------------------------------------------------------------------
+        # Set the sample rate, channels, and chunk size
+        sample_rate = 44100
+        channels = 1
+        chunk = 1024
+        filename = 'audio.wav'
+        duration = 10
+
+        audio_interface = pyaudio.PyAudio()
+
+        stream = audio_interface.open(format=pyaudio.paInt16, channels=channels, rate=sample_rate, input=True, frames_per_buffer=chunk)
+
+        #print("Recording started...")
+        frames = []
+        for i in range(0, int(sample_rate / chunk * duration)):
+            data = stream.read(chunk)
+            frames.append(data)
+
+        #print("Recording ended!")
+        stream.stop_stream()
+        stream.close()
+        audio_interface.terminate()
+
+        # Open a wave file for writing
+        wf = wave.open(filename, 'wb')
+
+        # Set the audio file parameters
+        wf.setnchannels(1)
+        wf.setsampwidth(pyaudio.get_sample_size(pyaudio.paInt16))
+        wf.setframerate(sample_rate)
+
+        # Write the audio frames to the file
+        wf.writeframes(b''.join(frames))
+        wf.close()
+        self.increase_happiness_level(0.2) #assuming this is after listening for 10 seconds
+        pass
+
+
+    def processingState(self): #kihyun
+        #In this state,
+        #translate the audio file('audio.wav') into text
+        #save text in self.lastAudioInput
+
+        # Initialize the recognizer
+        recognizer = sr.Recognizer()
+
+        try:
+            with sr.AudioFile('audio.wav') as source:
+                audio = recognizer.record(source)
+                self.lastAudioInput = recognizer.recognize_google(audio)
+                #return text
+        #except sr.UnknownValueError:
+        #    print("Speech recognition could not understand audio.")
+        #except sr.RequestError as e:
+        #    print("Could not request results from Google Speech Recognition service; {0}".format(e))
+
+        except:
+            pass
+
 
     def replyState(self): #kihyun
         #takes the self.lastAudioInput
         #translates to audio and save as a file
         #play the audio via the speaker
-        self.increase_happiness_level(0.2);#is this needed
+        
+
+        #----------------------------------------------------------------------------------------------------------------------------------
+        #Andy's Code
+        #tts = gtts.gTTS(audio, lang="en") #this sets the language to english
+        #tts.save("hello.mp3")
+        #to play the sound: playsound("hello.mp3")
+        
+        #----------------------------------------------------------------------------------------------------------------------------------
+        #Default response. For now, when the NOVA gets into replystate, it will reply "Hello my name is NOVA"
+        # Initialize the pyttsx3 engine
+        engine = pyttsx3.init()
+
+        # Convert text to speech
+        engine.say(self.reply_text)
+        engine.runAndWait()
+
+        #----------------------------------------------------------------------------------------------------------------------------------
+        self.increase_happiness_level(0.2)
+        pass
+
 
     def seekAttentionState(self): #kihyun
         #seeks attention
         #takes the string "hi where are you"
         #plays that through the speaker
-        pass
+
+            # Initialize the pyttsx3 engine
+            engine = pyttsx3.init()
+
+            # Convert text to speech
+            engine.say(self.seekattention_text)
+            engine.runAndWait()
+
+    pass
 
     #-----------------------------------------------------------------------------------------------------------------------------------         
 
@@ -170,6 +253,3 @@ class PET:
             if self.petState == 3:
                 self.seekAttentionState()
    
-
-pet = PET()
-pet.main()
