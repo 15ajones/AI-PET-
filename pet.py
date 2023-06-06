@@ -1,5 +1,7 @@
 import time
 import pyaudio
+import pydub
+import simpleaudio
 import RPi.GPIO as GPIO
 import wave
 import speech_recognition as sr
@@ -13,6 +15,10 @@ import json
 from PIL import Image
 import pyttsx3
 import gtts
+import sys
+from ibm_watson import SpeechToTextV1
+from ibm_watson import TextToSpeechV1
+from ibm_cloud_sdk_core.authenticators import IAMAuthenticator
 #THINK ABOUT EMAILING OR SOMETHING, AS MOST OLD PEOPLE USE EMAIL
 
 class PET:
@@ -74,6 +80,57 @@ class PET:
             # 5. based on happiness level maybe switch to the seek attention state
         pass
 
+    #------------------------------------------------------------------------------------------------------------------------------------
+
+    def hearingState(self): #Kihyun
+        # In this state, NOVA waits for the call "Hey, NOVA" and replies with "Hi, I am listening"
+
+        # Set up the Text to Speech service
+        apikey_text_to_speech = 'RL8bEBwfNsNhJ8uzZWGVWIWKZi_sIe2eptFqcGdytYXH'
+        url_text_to_speech = 'https://api.au-syd.text-to-speech.watson.cloud.ibm.com/instances/5da2b1e5-0bde-4a8c-bd7a-ebb249bb968b'
+        authenticator = IAMAuthenticator(apikey_text_to_speech)
+        text_to_speech = TextToSpeechV1(authenticator=authenticator)
+        text_to_speech.set_service_url(url_text_to_speech)
+
+
+        # Set up the recognizer and engine
+        recognizer = sr.Recognizer()
+        default_text = "Hi, I am listening"
+        output_file = "output.wav"
+
+        with sr.Microphone() as source:
+            #print("Listening...")
+            audio = recognizer.listen(source)
+
+        try:
+            text = recognizer.recognize_google(audio)
+            if text.lower() == "hey nova":
+                #print("Detected command:", text)
+                #engine.say("Hi, I am listening")
+                #engine.runAndWait()
+                response = text_to_speech.synthesize(default_text, accept='audio/wav', voice='en-US_AllisonV3Voice').get_result()
+
+                # Save the audio to a file
+                with open(output_file, 'wb') as audio_file:
+                    audio_file.write(response.content)
+
+                audio = pydub.AudioSegment.from_wav(output_file)
+                # Play the audio
+                play_obj = simpleaudio.play_buffer(audio.raw_data, num_channels=audio.channels, bytes_per_sample=audio.sample_width, sample_rate=audio.frame_rate)
+                play_obj.wait_done()
+                sys.exit()  # Terminate the program after speaking
+                
+        except sr.UnknownValueError:
+            #print("Speech recognition could not understand audio.")
+        #except sr.RequestError as e:
+            #print("Could not request results from Google Speech Recognition service; {0}".format(e))
+            pass
+
+        # Set up the PyAudio input stream
+        #audio = pyaudio.PyAudio()
+        #stream = audio.open(format=pyaudio.paInt16, channels=1, rate=44100, input=True, frames_per_buffer=1024)
+
+   
 
     def listenState(self): #kihyun
         #in this function you:
@@ -122,21 +179,22 @@ class PET:
         #translate the audio file('audio.wav') into text
         #save text in self.lastAudioInput
 
-        # Initialize the recognizer
-        recognizer = sr.Recognizer()
+        # Set up the Speech to Text service
+        apikey = 'vIC0cr98ZS3tO7FxgceuzsjCrhDUjiMc2IbSEtSdEzjv'
+        url = 'https://api.au-syd.speech-to-text.watson.cloud.ibm.com/instances/cbab904d-34fb-41dc-a0fd-40cca19ff9e6'
+        authenticator = IAMAuthenticator(apikey)
+        speech_to_text = SpeechToTextV1(authenticator=authenticator)
+        speech_to_text.set_service_url(url)
 
         try:
-            with sr.AudioFile('audio.wav') as source:
-                audio = recognizer.record(source)
-                self.lastAudioInput = recognizer.recognize_google(audio)
+            with open('audio.wav', 'rb') as audio:
+                response = speech_to_text.recognize(audio=audio, content_type='audio/wav')
+                text = response.result['results'][0]['alternatives'][0]['transcript']
+                self.lastAudioInput = text
                 #return text
-        #except sr.UnknownValueError:
-        #    print("Speech recognition could not understand audio.")
-        #except sr.RequestError as e:
-        #    print("Could not request results from Google Speech Recognition service; {0}".format(e))
-
-        except:
-            pass
+        except :
+                #print("Speech recognition could not understand audio.")
+                pass
 
 
     def replyState(self): #kihyun
@@ -168,14 +226,57 @@ class PET:
         #takes the string "hi where are you"
         #plays that through the speaker
 
-            # Initialize the pyttsx3 engine
-            engine = pyttsx3.init()
+        # Set up the Text to Speech service
+        apikey_text_to_speech = 'RL8bEBwfNsNhJ8uzZWGVWIWKZi_sIe2eptFqcGdytYXH'
+        url_text_to_speech = 'https://api.au-syd.text-to-speech.watson.cloud.ibm.com/instances/5da2b1e5-0bde-4a8c-bd7a-ebb249bb968b'
+        authenticator = IAMAuthenticator(apikey_text_to_speech)
+        text_to_speech = TextToSpeechV1(authenticator=authenticator)
 
-            # Convert text to speech
-            engine.say(self.seekattention_text)
-            engine.runAndWait()
+        text = self.seekattention_text
+        output_file = "output.wav"
 
-    pass
+        try:
+            # Perform text to speech conversion
+            response = text_to_speech.synthesize(text, accept='audio/wav', voice='en-US_AllisonV3Voice').get_result()
+
+            # Save the audio to a file
+            with open(output_file, 'wb') as audio_file:
+                audio_file.write(response.content)
+
+            #print("Text to Speech conversion completed.")
+            # Load the audio file
+            audio = pydub.AudioSegment.from_wav(output_file)
+
+            # Play the audio
+            play_obj = simpleaudio.play_buffer(audio.raw_data, num_channels=audio.channels, bytes_per_sample=audio.sample_width, sample_rate=audio.frame_rate)
+            play_obj.wait_done()
+
+        except Exception as e:
+            #print("Error converting text to speech:", str(e))
+            pass
+
+    def touchingState(self): # Kihyun
+        #Detects the touch sensor and reacts to it
+        # Set up GPIO mode and input pin
+        GPIO.setmode(GPIO.BOARD)
+        touch_pin = 12
+
+        # Set up the GPIO pin as input with pull-up resistor
+        GPIO.setup(touch_pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+
+        # Main loop to detect touch sensor input
+        try:
+            while True:
+                if GPIO.input(touch_pin) == GPIO.LOW:
+                    print("Touch sensor activated")
+                    # Perform desired actions when touch sensor is activated
+        except KeyboardInterrupt:
+            pass
+
+        # Clean up GPIO settings
+        GPIO.cleanup()
+
+        pass
 
     #-----------------------------------------------------------------------------------------------------------------------------------         
 
