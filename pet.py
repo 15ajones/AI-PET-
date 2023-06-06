@@ -289,7 +289,7 @@ class Pet:
             with open(output_file, 'wb') as audio_file:
                 audio_file.write(response.content)
 
-            print("Text to Speech conversion completed.")
+            #print("Text to Speech conversion completed.")
             # Load the audio file
             audio = pydub.AudioSegment.from_wav(output_file)
 
@@ -298,7 +298,7 @@ class Pet:
             play_obj.wait_done()
 
         except Exception as e:
-            print("Error converting text to speech:", str(e))
+            #print("Error converting text to speech:", str(e))
         
 
     pass
