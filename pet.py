@@ -16,6 +16,7 @@ from PIL import Image
 import pyttsx3
 import gtts
 from weather import Weather
+from threading import thread
 #THINK ABOUT EMAILING OR SOMETHING, AS MOST OLD PEOPLE USE EMAIL
 
 class Pet:
@@ -152,10 +153,10 @@ class Pet:
         wf.writeframes(b''.join(frames))
         wf.close()
         self.increase_happiness_level(0.2) #assuming this is after listening for 10 seconds
-        self.processingState(self) #go straight to processing
+        self.decideTask(self) #go straight to processing
 
 
-    def processingState(self): #kihyun
+    def decideTask(self): #kihyun
         #In this state,
         #translate the audio file('audio.wav') into text
         #save text in self.lastAudioInput
@@ -170,13 +171,13 @@ class Pet:
                 #return text
         #except sr.UnknownValueError:
         #    print("Speech recognition could not understand audio.")
-        #except sr.RequestError as e:
-        #    print("Could not request results from Google Speech Recognition service; {0}".format(e))
 
+        #NLP STUFF GOES HERE
         except:
             print("couldn't translate audio to text")
             pass
-
+        
+        self.petState = 2 #setting state to reply task state
 
     def replyState(self): #kihyun
         #takes the self.lastAudioInput
@@ -201,7 +202,7 @@ class Pet:
 
         #----------------------------------------------------------------------------------------------------------------------------------
         self.increase_happiness_level(0.2)
-        pass
+        self.petState = 0
 
 
     def seekAttentionState(self): #kihyun
@@ -209,20 +210,21 @@ class Pet:
         #takes the string "hi where are you"
         #plays that through the speaker
 
-            # Initialize the pyttsx3 engine
-            engine = pyttsx3.init()
+        # Initialize the pyttsx3 engine
+        engine = pyttsx3.init()
 
-            # Convert text to speech
-            engine.say(self.seekattention_text)
-            engine.runAndWait()
+        # Convert text to speech
+        engine.say(self.seekattention_text)
+        engine.runAndWait()
+        self.petState = 0
 
-    pass
 
     #-----------------------------------------------------------------------------------------------------------------------------------         
 
 
 # ------MAIN------
 def __main__():
+
     programPet = Pet()
     print(programPet.petState)
     while True:
