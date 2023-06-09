@@ -4,6 +4,8 @@ from timeit import default_timer
 import pyaudio
 import RPi.GPIO as GPIO
 import wave
+import pydub
+import simpleaudio
 import speech_recognition as sr
 from ctypes import *
 from contextlib import contextmanager
@@ -15,6 +17,12 @@ from PIL import Image
 import pyttsx3
 import gtts
 import threading
+from nlp import hasTime, hasDate, getOccurence, getStrongestEmotion, categoriseText
+#import pygame
+from ibm_watson import TextToSpeechV1
+from ibm_cloud_sdk_core.authenticators import IAMAuthenticator
+
+from calendarFile import Event, Day, CalendarClass
 #from weather import Weather
 GPIO.setmode(GPIO.BCM)
 GPIO.setup(18, GPIO.IN, pull_up_down=GPIO.PUD_UP)
@@ -42,8 +50,11 @@ class Pet:
 
         self.seekattention_text = "Hi, Where are you?" # When the state becomes seekattention_state, NOVA speaks seekattention_text
 
+
+        self.calendar = CalendarClass(currentDayIndex=0)#change this to be the correct day at some point
         button_t = threading.Thread(target=self.button_thread)
         button_t.start()
+
     
         # ------------ HAPPINESS LEVEL CODE --------------------------------------------------------------
     def increase_happiness_level(self,increaseValue): 
@@ -66,6 +77,7 @@ class Pet:
                 print("button pressed")
                 time.sleep(1)
 
+
     #----------------------------------------------------------------------------------------------------------------------------------
 
     #CODE FOR STATES
@@ -79,7 +91,7 @@ class Pet:
             # 3. check for notifications (don't do this yet)
             # 4. update happiness level (based on time since last interaction) y
             # 5. based on happiness level maybe switch to the seek attention state y
-        time.sleep(0.5)
+        time.sleep(1)
         if(time.time()-self.unhappinessTimer > 15):
             print("becoming less happy")
             self.decrease_happiness_level(0.2)
@@ -165,6 +177,7 @@ class Pet:
         #translate the audio file('audio.wav') into text
         #save text in self.lastAudioInput
 
+        #---------------------------------------------------------------------
         # Initialize the recognizer
         recognizer = sr.Recognizer()
 
@@ -172,7 +185,8 @@ class Pet:
             with sr.AudioFile('audio.wav') as source:
                 audio = recognizer.record(source)
                 # self.lastAudioInput = recognizer.recognize_google(audio)
-                print(recognizer.recognize_google(audio))
+                recognized_text = recognizer.recognize_google(audio)
+                print("audio input was: ", recognized_text)
                 #return text
         #except sr.UnknownValueError:
         #    print("Speech recognition could not understand audio.")
@@ -180,12 +194,162 @@ class Pet:
         #NLP STUFF GOES HERE
         except:
             print("couldn't translate audio to text")
-            pass
+            self.petState = 2
+            return
+
+        task = categoriseText(recognized_text)
+        print("task is: ", task)
+        
+        
+        task = list(task)
+        for i in range(len(task)):
+            if len(task[i]) > 0:
+                task[i] = task[i][0]
+            else:
+                task[i] = ""
+        print("formatted task is: ", task)
+        taskTitle = task[0]
+
+
+        #-----------------------------------------------------------------------
+        #CALENDAR SHIIIIIT
+        """
+        1. check, plan, alarm, reminder    (p, e, w, n, m, conv)
+
+        check -> day -> time
+        plan -> day -> time -> activity
+        alarm -> day -> time -> name -> occurance
+        reminder -> day -> time -> name -> occurance
+        gugug
+        types of day: "today", "tomorrow", "yesterday", "sunday", "monday", "tuesday", "wednesday", "thursday", "friday"
+        """
+        if taskTitle == "check" or taskTitle == "plan" or taskTitle == "alarm" or taskTitle == "reminder":
+            for i in range(task):
+                if i == 0:
+                    continue
+                elif i == 1 and task[i] == "":
+                    task[i] = self.seekMoreInfo("day")
+                elif i == 2 and task[i] == "":
+                    task[i] = self.seekMoreInfo("time")
+                elif i == 3 and task[i] == "":
+                    if len(task) == 4:
+                        task[i] = self.seekMoreInfo("activity")
+                    else:
+                        task[i] = self.seekMoreInfo("name")
+                elif i == 4 and task[i] == "":
+                    task[i] = self.seekMoreInfo("occurance")
+
+            if taskTitle == "check":
+                result = self.calendar.check(task[1], task[2])
+                print("checking calendar. result is this: ", result)
+            elif taskTitle == "plan":
+                result = self.calendar.plan(task[1], task[2], task[3])
+                print("planning in calendar. result is this: ", result)
+        #-------------------------------------------------------------------------
+
+
         self.petState = 2
+
+    def seekMoreInfo(self, infoTitle):
+        print("please provide the ",infoTitle, " for the event.")
+        newInfo = self.getVoiceInput()
+        while newInfo == 0:
+            print("didn't hear that. please provide the ",infoTitle, " for the event.")
+            newInfo = self.getVoiceInput()
+        return newInfo
+
+    def getVoiceInput(self):
+        sample_rate = 44100
+        chans = 1
+        chunk = 1024
+        filename = 'audio.wav'
+        duration = 5
+        dev_index = 0
+        # Initialize PyAudio
+        audio_interface = pyaudio.PyAudio()
+        print("Device count:")
+        print(audio_interface.get_device_count())
+        print("max input channels:")
+        print(audio_interface.get_default_input_device_info()['maxInputChannels'])
+        # Open the microphone stream
+        stream = audio_interface.open(format = pyaudio.paInt16, rate=sample_rate, channels = chans, input_device_index = dev_index,input = True,frames_per_buffer=chunk)
+        
+        # Start recording
+        print("Recording started...")
+        frames = []
+        for i in range(0, int(sample_rate / chunk * duration)):
+            data = stream.read(chunk, exception_on_overflow=False)
+            frames.append(data)
+
+        # Stop recording
+        print("Recording ended!")
+        stream.stop_stream()
+        stream.close()
+        audio_interface.terminate()
+
+            # Open a wave file for writing
+        wf = wave.open(filename, 'wb')
+
+        # Set the audio file parameters
+        wf.setnchannels(1)
+        wf.setsampwidth(pyaudio.get_sample_size(pyaudio.paInt16))
+        wf.setframerate(sample_rate)
+
+        # Write the audio frames to the file
+        wf.writeframes(b''.join(frames))
+        wf.close()
+
+        recognizer = sr.Recognizer()
+
+        try:
+            with sr.AudioFile('audio.wav') as source:
+                audio = recognizer.record(source)
+                # self.lastAudioInput = recognizer.recognize_google(audio)
+                recognized_text = recognizer.recognize_google(audio)
+                print("audio input was: ", recognized_text)
+                return recognized_text
+       
+
+        #NLP STUFF GOES HERE
+        except:
+            print("couldn't translate audio to text")
+            return 0
 
     def replyState(self):
         print("in reply state")
-        print("replying!!!")
+        
+        # # Set up the Text to Speech service
+        # apikey = 'RL8bEBwfNsNhJ8uzZWGVWIWKZi_sIe2eptFqcGdytYXH'
+        # url = 'https://api.au-syd.text-to-speech.watson.cloud.ibm.com/instances/5da2b1e5-0bde-4a8c-bd7a-ebb249bb968b'
+        # authenticator = IAMAuthenticator(apikey)
+        # text_to_speech = TextToSpeechV1(authenticator=authenticator)
+        # text_to_speech.set_service_url(url)
+        # text = "I am replying."
+        # output_file = "output.wav"
+
+        # try:
+        #     # Perform text to speech conversion
+        #     response = text_to_speech.synthesize(text, accept='audio/wav', voice='en-US_AllisonV3Voice').get_result()
+
+        #     # Save the audio to a file
+        #     with open(output_file, 'wb') as audio_file:
+        #         audio_file.write(response.content)
+
+        #     print("Text to Speech conversion completed.")
+        #     # Load the audio file
+        #     audio = pydub.AudioSegment.from_wav(output_file)
+
+        #     # Play the audio
+        #     play_obj = simpleaudio.play_buffer(audio.raw_data, num_channels=audio.channels, bytes_per_sample=audio.sample_width, sample_rate=audio.frame_rate)
+        #     play_obj.wait_done()
+
+        # except Exception as e:
+        #     print("Error converting text to speech:", str(e))
+
+        print("replying!!")
+
+
+
         self.petState = 0
 
     def seekAttentionState(self):
@@ -202,10 +366,20 @@ class Pet:
                 self.replyState()
             if self.petState == 3:
                 self.seekAttentionState()
-   
+            
 
 def __main__():
     pet = Pet()
     pet.run()
 
 __main__()
+
+"""
+1. check, plan, alarm, reminder    (p, e, w, n, m, conv)
+
+check -> day -> time
+plan -> day -> time -> activity
+alarm -> day -> time -> name -> occurance
+reminder -> day -> time -> name -> occurance
+gugug
+"""
