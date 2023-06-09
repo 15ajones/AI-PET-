@@ -3,12 +3,27 @@ import json
 import ast
 import base64
 import re
+from python_weather import Client
+import asyncio
+
+async def isWeather(location):
+    
+    try:
+        async with Client() as client:
+            weather = await client.get(location)
+            if weather.location == None:
+                return False
+            return True
+    except:
+        return False
+
 
 def hasTime(sentence):
     # Regular expression pattern for time
     timeKeywords = ["morning", "afternoon", "evening", "night"]
     timePattern = r"\b(?:{})\b".format("|".join(timeKeywords))
-    hourPattern = r"\b\d{1,2}(?: o'clock| a.m| p.m)\b"
+    hourPattern = r"\b(?:\d{1,2}|[a-zA-Z]+)(?: o'clock| a.m| p.m)\b"
+#checks for 1/2 digits or 1+ alphabetical characters 
 
     timeKeywordMatches = re.findall(timePattern, sentence, re.IGNORECASE)
     hourMatches = re.findall(hourPattern, sentence, re.IGNORECASE)
@@ -30,12 +45,17 @@ def hasDate(sentence):
     
     return re.findall(datePattern, sentence, re.IGNORECASE)
 
+def getOccurence(sentence):
+    occurenceKeywords = ["every", "daily", "every other"]
+    occurencePattern = r"\b(?:{})\b".format("|".join(occurenceKeywords))
+    return re.findall(occurencePattern, sentence, re.IGNORECASE)
+
 def getStrongestEmotion(emotionList):
     newList = dict(sorted(emotionList.items(), key = lambda x:x[1], reverse = True))
     firstValue = list(newList.items())[0][0]
     return firstValue
 
-def categoriseText(text):#redo with corrent authentification process
+async def categoriseText(text):#redo with corrent authentification process
     api_url1 = "https://api.eu-gb.natural-language-understanding.watson.cloud.ibm.com/instances/021acc9f-fa3e-43da-a7f3-6ea134e47856"
     split_url = api_url1.split('//')[1]
     api_url = split_url.split('com')[0] + "com"
@@ -46,13 +66,13 @@ def categoriseText(text):#redo with corrent authentification process
 
 
     payload_dict = {
-      "text": text,
-      "features": {
+    "text": text,
+    "features": {
         "categories": {},
         "keywords": {
             "emotion": True,#might have to change 'but' to seperate sentences
             }
-      }
+    }
     }
     payload = json.dumps(payload_dict)
 
@@ -66,7 +86,7 @@ def categoriseText(text):#redo with corrent authentification process
     res = conn.getresponse()
 
     data = res.read().decode("utf-8")
-   #print(data)
+#print(data)
     json_data = ast.literal_eval(data)
     keywords = []
     emotions = []
@@ -84,7 +104,7 @@ def categoriseText(text):#redo with corrent authentification process
         categories.append(i['label'])
     #print(categories)
     state = ""
-    planningKeywords = ["arrange", "schedule", "plan"]
+    planningKeywords = ["arrange", "schedule", "plan", "set", "remind"]
     checkingKeywords = ["check"]
     user_input = text.lower()  # Convert input to lowercase for case-insensitive matching
     textList = text.split(" ")
@@ -99,8 +119,15 @@ def categoriseText(text):#redo with corrent authentification process
                     print("checking")
                     state = "checking"
                 else:
-                    print("planning")
-                    state = "planning"
+                    if any(t == "alarm" for t in textList):
+                        state = "alarm"
+                        print("alarm")
+                    elif any(t == "remind" for t in textList) | any(t == "reminder" for t in textList):
+                        state = "reminder"
+                        print("reminder")
+                    else:
+                        print("planning")
+                        state = "planning"
 
     for keyword in checkingKeywords:
         if keyword in user_input:
@@ -108,27 +135,41 @@ def categoriseText(text):#redo with corrent authentification process
             state = "checking"
     
     #dateLists = ["today", "tomorrow", "next week", "last week", "yesterday", "time", "calendar"]#also include full list of datetimes
-    activities = []
-    if state == "checking":
-        time = hasTime(text.lower())
-        date = hasDate(text.lower())
-        #if no datetime, prompt to ask for datetime?
-        return ["check"] , date, time #check with Anthony if ok format
-    elif state == "planning":
-        print(keywords)
-        time = hasTime(text.lower())
-        date = hasDate(text.lower())
-        print("time ", time)
-        for t in keywords: 
-            if t != "calendar":#test to find useless keywords/or will this be for Anthony to do
-                if len(hasTime(t)) < 1:
-                    activities.append(t)
-                    print(t)
-                
-        return ["plan"], date,time,activities
-
     
-
+    activities = []
+    time = hasTime(text.lower())
+    date = hasDate(text.lower())
+    print(keywords)
+    print("time ", time)
+    print("date ", date)
+    if len(date) == 0:
+        print(date)
+        print(activities)
+        if (state == "alarm") | (state == "reminder"):
+            if any(word == "day" for word in keywords) | any(word == "day" for word in keywords):
+                print("check")
+                date = ["day"]
+    if state == "checking":
+        return ["check"] , date, time 
+    elif state == "planning":
+        for t in keywords: 
+            if t != "calendar":#test to find useless keywords
+                if len(hasTime(t)) < 1: #(if its not a date and not a time)
+                    if len(hasDate(t)) < 1:
+                        activities.append(t)
+                        print(t)
+        return ["plan"], date,time,activities
+    elif (state == "alarm") | (state == "reminder"):
+        occurence = getOccurence(text.lower())
+        for t in keywords: 
+            if (t != "calendar") & (t != "alarm") & (t != "remind") & (t != "reminder"):#test to find useless keywords
+                if len(hasTime(t)) < 1 :
+                    if len(hasDate(t)) < 1:
+                        activities.append(t)
+                        print(t)
+        name = []
+        return [state], date, time, [name], [occurence]
+    
     elif any(t == "podcast" for t in keywords) or any(t == "podcasts" for t in keywords):
         
         print ("podcast function")
@@ -144,12 +185,40 @@ def categoriseText(text):#redo with corrent authentification process
     elif any(t == "emails" for t in keywords) or any(t == "email" for t in keywords):
         print ("email function")#for now assuming its just receive not send e.g. do we have any new emails?
         return ["e"]
-    elif any(t == "weather" for t in keywords):
+    elif any(t == "weather" for t in textList) or any(t == "weather?" for t in textList):
         print ("weather function")
-        return ["w"]
-    elif any(t == "news" for t in keywords):
+        print(keywords)
+        for t in keywords:
+            if await isWeather(t) == True:
+                return ["w"], [t]
+        return ["w"], []
+    elif any(t == "news" for t in textList) or any(t == "headlines" for t in textList) or any(t == "headlines?" for t in textList):#needs changing
         print ("news function")
-        return ["n"]
+        print(keywords)
+        newsCategory = ""
+        if any(t == "sport" for t in textList) or any(t == "sports" for t in textList):
+            newsCategory = "sport"
+        elif any(t == "entertainment" for t in textList):
+            newsCategory = "entertainment"
+        elif any(t == "technology" for t in textList):
+            newsCategory = "technology"
+        elif any(t == "science" for t in textList):
+            newsCategory = "science"
+        elif any(t == "health" for t in textList):
+            newsCategory = "health"
+        elif any(t == "food" for t in textList):
+            newsCategory = "food"
+        elif any(t == "business" for t in textList):
+            newsCategory = "business"
+        elif any(t == "world" for t in textList) or any(t == "international" for t in textList):
+            newsCategory = "world"
+        elif any(t == "environment" for t in textList) or any(t == "environmental" for t in textList):
+            newsCategory = "environment"
+        elif any(t == "politics" for t in textList) or any(t == "political" for t in textList):
+            newsCategory = "politics"
+        elif any(t == "top" for t in textList):
+            newsCategory = "top"
+        return ["n"] ,[newsCategory]
     elif any (t == "music" for t in keywords) or any(t == "song" for t in keywords) or any(t == "songs" for t in keywords):
         print ("music function")
         genre = []#or artist
@@ -163,12 +232,23 @@ def categoriseText(text):#redo with corrent authentification process
         return ["m", genre]
     else:
         print ("conversation")
+        print(keywords)
+        print(textList)
         return ["conv"]
     
-
-
-#print(categoriseText("I want to watch a movie at 2 a.m tomorrow. I also need to go to school on Friday afternoon. Please schedule this in my calendar"))
+#maybe make function to separate keywords if "London today" or linked with 'tomorrow' etc.
+#or separate all keywords so that "current weather" becomes "current", "weather"
+async def main():
+    print(await categoriseText("What's the current weather in Warley?"))
 #print(categoriseText("What is scheduled in my calendar for thursday at 2 p.m?"))
-print(categoriseText("I want to listen to a podcast. I like self improvement. What do you recommend?"))
+#print(categoriseText("I want to listen to a podcast. I like self improvement. What do you recommend?"))
 #in user guide -> user must say both date and time/especially when multiple activities: if not/if the length of dates doesn't match length of activities/times prompt user?
 #will it try to find what time it is free?
+#print(categoriseText("Please set a reminder every day to feed the dog"))# if including prompting, currently only works for one activity
+#print(categoriseText("Please remind me to take my medication every Monday at ten a.m."))
+
+#USER RULES: CAN ONLY PLAN/SCHEDULE/SET ALARM FOR ONE THING AT A TIME
+
+if __name__ == "__main__":
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(main())
