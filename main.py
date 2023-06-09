@@ -77,7 +77,8 @@ class Pet:
                 print("button pressed")
                 time.sleep(1)
 
-
+    
+    d
     #----------------------------------------------------------------------------------------------------------------------------------
 
     #CODE FOR STATES
@@ -92,7 +93,7 @@ class Pet:
             # 4. update happiness level (based on time since last interaction) y
             # 5. based on happiness level maybe switch to the seek attention state y
         time.sleep(1)
-        if(time.time()-self.unhappinessTimer > 15):
+        if(time.time()-self.unhappinessTimer > 15):#this is the number to set how often it gets less happy
             print("becoming less happy")
             self.decrease_happiness_level(0.2)
             self.unhappinessTimer = time.time()
