@@ -103,7 +103,7 @@ class Pet:
         self.reply_text = "Hello, My name is NOVA. How can I help you today?" # Default reply text for replystate.
 
         self.seekattention_text = "Hi, Where are you?" # When the state becomes seekattention_state, NOVA speaks seekattention_text
-
+        self.eventsToAnnounce = []
 
         self.calendar = CalendarClass(currentDayIndex=0)#change this to be the correct day at some point
         button_t = threading.Thread(target=self.button_thread)
@@ -149,6 +149,9 @@ class Pet:
                     newAnnouncement = self.calendar.checkAnnouncements("1000")#change it to be the current time
                     if newAnnouncement == "alarm":
                         self.petState = 4
+                    elif newAnnouncement:
+                        self.eventsToAnnounce.append(newAnnouncement)
+            
        
     #----------------------------------------------------------------------------------------------------------------------------------
 
@@ -189,6 +192,11 @@ class Pet:
         #display stuff -> get the emotion level and display the face
         #get the weather -> display the weather
         
+
+        #announcing calendar events
+        while len(self.eventsToAnnounce) > 0:
+            event = self.eventsToAnnounce.pop(0)
+            print("you have ", event, " coming up in less than 15 minutes")#needs to be replaced with the speaker
 
 
     def listenState(self): #kihyun
