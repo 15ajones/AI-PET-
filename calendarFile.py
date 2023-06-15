@@ -84,7 +84,7 @@ class Day:
     
 class CalendarClass:
 
-    def __init__(self, currentDayIndex = 0):
+    def __init__(self, currentDayIndex = 0): #default starts as monday
         self.days = [Day("Monday"),Day("Tuesday"),Day("Wednesday"),Day("Thursday"),Day("Friday"),Day("Saturday"),Day("Sunday")]
         self.currentDayIndex = currentDayIndex
         self.dayIndexer = {
@@ -177,11 +177,24 @@ class CalendarClass:
             minutes = str(intTime)
         return hours + minutes
     
+    def checkAnnouncements(self, stringTime): #time is given as "1450" for example
+        stringTime = self.convertDateStringToInt(stringTime)
+        day = self.days[self.currentDayIndex]
+        for event in day.events:
+            if event.name == "alarm" and (not event.announced) and stringTime >= event.startTime:
+                event.announced = True
+                return "alarm" 
+            elif event.name[:8] == "reminder" and (not event.announced) and stringTime >= event.startTime:
+                event.announced = True
+                return event.name
+            elif (not event.announced) and stringTime >= event.startTime - 15:
+                event.announced = True
+                return event.name 
+        return None
+
 
 def test():
     calendar = CalendarClass()
     calendar.plan("monday", "2 p.m", "feed dog")
     print("calendar check returns: ",calendar.check("monday", "2 p.m"))
     print("new plan attempt returns: ", calendar.plan("monday", "2 p.m", "cat"))
-
-test()
