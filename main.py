@@ -1,5 +1,7 @@
 import time
 import random
+from datetime import datetime
+import pytz
 from timeit import default_timer
 import pyaudio
 import RPi.GPIO as GPIO
@@ -146,11 +148,26 @@ class Pet:
                 if time.time() - current_time >= 10:
                     print("checking for notifications")
                     current_time = time.time()
-                    newAnnouncement = self.calendar.checkAnnouncements("1000")#change it to be the current time
+
+                    tz_London = pytz.timezone('Europe/London')
+
+                    # Get the current time in London
+                    datetime_London = datetime.now(tz_London)
+
+                    # Format the time as a string and print it
+                    dayTime = datetime_London.strftime("%H%M")
+
+
+                    # get day of week as an integer
+                    dayIndex = datetime_London.weekday()
+                    
+                    newAnnouncement = self.calendar.checkAnnouncements(dayTime)#change it to be the current time
                     if newAnnouncement == "alarm":
                         self.petState = 4
                     elif newAnnouncement:
                         self.eventsToAnnounce.append(newAnnouncement)
+
+                    self.calendar.possibleChangeDay(dayIndex)
             
        
     #----------------------------------------------------------------------------------------------------------------------------------
@@ -630,6 +647,7 @@ class Pet:
                 self.alarmState()
 
 def __main__():
+
     pet = Pet()
     pet.run()
 

@@ -2,11 +2,11 @@
 
 
 class Event:
-    def __init__(self, name, startTime, endTime):
+    def __init__(self, name, startTime, endTime, announced = False):
         self.name = name
         self.startTime = startTime
         self.endTime = endTime
-        self.announced = False
+        self.announced = announced
 
     def getName(self):
         return self.name
@@ -96,14 +96,17 @@ class CalendarClass:
             "saturday": 5,
             "sunday": 6
         }
+        self.readFromFile()
     def changeDay(self):
         self.days[self.currentDayIndex].removeAllEvents()
         self.currentDayIndex = (self.currentDayIndex + 1) % 7
 
-    # def checkUpcomingAppointments(self, currentTime):#this runs every 5 minu
-    #     currentDay = self.days[self.currentDayIndex]
-    #     for event in currentDay.events:
-    #         pass
+    def possibleChangeDay(self, newDayIndex):
+        if newDayIndex != self.currentDayIndex:
+            self.days[self.currentDayIndex].events = []
+            self.currentDayIndex = newDayIndex
+
+   
 
     def check(self, day, time):
         if day == "today":
@@ -135,6 +138,7 @@ class CalendarClass:
         day = self.days[dayIndex]
         event = Event(activity, time, time)
         response = day.addEvent(event)
+        self.writeToFile()
         return response
 
     def setAlarm(self, day, time):
@@ -192,9 +196,43 @@ class CalendarClass:
                 return event.name 
         return None
 
+    def writeToFile(self):
+        with open('calendar.txt', 'w') as f:
+            for i in range(7):
+                day = self.days[i]
+                for event in day.events:
+                    f.write(day.dayOfWeek + " " + event.name + " " + str(event.startTime) + " " + str(event.announced))
+                    f.write("\n")
+
+    def readFromFile(self):
+        try:
+            f = open("calendar.txt", "r")
+        except:
+            print("no file to read calendar from")
+            return
+        for line in f:
+            if len(line) < 3:
+                continue
+            arr = line.split(" ")
+            arr[-1] = arr[-1][:len(arr[-1])-1]
+            print(arr)
+            dayOfWeek = arr[0].lower()
+            announced = arr[-1]
+            time = arr[-2]
+            eventName = " ".join(arr[1:len(arr)-2])
+            day = self.days[self.dayIndexer[dayOfWeek]]
+            newEvent = Event(eventName, time, time, announced)
+            day.addEvent(newEvent)
+            
+
+        f.close()
+    
+    def clearCalendar(self):
+        for day in self.days:
+            day.removeAllEvents()
+    
 
 def test():
     calendar = CalendarClass()
-    calendar.plan("monday", "2 p.m", "feed dog")
-    print("calendar check returns: ",calendar.check("monday", "2 p.m"))
-    print("new plan attempt returns: ", calendar.plan("monday", "2 p.m", "cat"))
+    calendar.readFromFile()
+    calendar.writeToFile()
