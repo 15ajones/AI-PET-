@@ -93,6 +93,8 @@ class Pet:
         #1 is listening (goes to either state 0 or 2)
         #2 is replying (goes to either 0 or 1)
         #3 is seeking attention (goes to either 0 or 1)
+        self.userName = ""
+        self.location = "London"
         self.happinessLevel = 10.0
         #happiness level is minimum 0, maximum 10 (different emotion face for every 2 levels, so we need 5 emotion faces)
         #below happiness level of 5, the pet begins to seek attention
@@ -169,7 +171,33 @@ class Pet:
 
                     self.calendar.possibleChangeDay(dayIndex)
             
-       
+
+    #------------- CODE FOR SETUP ----------------------------------------------------------------
+    def setup(self):
+        #what we need to do:
+        # 1. get name 
+        # 2. get where you live 
+        # 3. get cat or dog 
+        print("hi there! I'm Nova, your new pet and smart assistant! To get started, I need to ask you a few questions")
+        time.sleep(1)
+        print("firstly, what is your name?")
+        self.userName = self.getVoiceInput()
+        print("excellent, now what country/city do you live in")
+        self.location = self.getVoiceInput()
+        print("")
+        print("and what animal do you prefer between a dog and a cat?")
+        self.animalType = self.getVoiceInput()
+        
+
+
+
+
+
+
+    #----------------------------------------------------------------------------------------------
+
+
+
     #----------------------------------------------------------------------------------------------------------------------------------
 
     #CODE FOR STATES
@@ -432,6 +460,9 @@ class Pet:
 
             self.petState = 0
             return
+        
+        #------------------------------------- NEWS ------------------------------
+
         #-------------------------------------------------------------------------
 
         else:
@@ -652,3 +683,21 @@ def __main__():
     pet.run()
 
 __main__()
+
+"""
+to do:
+1. touch sensor
+2. screen
+3. make speaker work in main
+2. aleera - email notifications
+3. aleera email reply by voice?
+4. aleera add whatsapp notifications
+5. aleera add if happiness level stays low for too long sends messages to emergency contacts
+6. anthony - asking what plan is for your day
+7. anthony - other things that make it human (positive stuff, recommending meditating)
+7. anthony - set up sequence
+7. anthony - cat and dog mode
+8. kihyun - do specific recommendations
+9. kihyun - modify spotify code on main branch
+10. kihyun - saving interests in a text file
+"""
