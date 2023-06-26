@@ -1,4 +1,5 @@
 import time
+import sys
 import random
 from datetime import datetime
 import pytz
@@ -22,7 +23,8 @@ import threading
 from ibm_watson import AssistantV2
 from ibm_watson import SpeechToTextV1
 from nlp import hasTime, hasDate, getOccurence, getStrongestEmotion, categoriseText
-#import pygame
+from newsapiFile import getTopNewsHeadlines
+import pygame
 from ibm_watson import TextToSpeechV1
 from ibm_cloud_sdk_core.authenticators import IAMAuthenticator
 import spotipy
@@ -33,10 +35,20 @@ from watson_assistant_functions import spotify_track_find_and_play
 from watson_assistant_functions import get_weather_data
 from watson_assistant_functions import play_response
 from watson_assistant_functions import spotify_podcast_find
+from watson_assistant_functions import record_audio
+from watson_assistant_functions import spotify_track_find_and_play_v2
 from calendarFile import Event, Day, CalendarClass
+from smsapiFile import sendSMS
+from emailFile import list_emails, getService, getNewEmails
 #from weather import Weather
 GPIO.setmode(GPIO.BCM)
 GPIO.setup(18, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+
+
+import board
+import busio
+# Import MPR121 module.
+import adafruit_mpr121
 
 # Set up the Watson Assistant credentials
 api_key = 'p7Fj1Ty5O5Qi_BWHYehHC1jA3ai2r14wgyRlqghSJe8u'
@@ -55,8 +67,8 @@ speech_to_text = SpeechToTextV1(authenticator=authenticator)
 speech_to_text.set_service_url(url_speech_to_text)
 
 # Set up the Text to Speech service
-apikey_text_to_speech = 'RL8bEBwfNsNhJ8uzZWGVWIWKZi_sIe2eptFqcGdytYXH'
-url_text_to_speech = 'https://api.au-syd.text-to-speech.watson.cloud.ibm.com/instances/5da2b1e5-0bde-4a8c-bd7a-ebb249bb968b'
+apikey_text_to_speech = 'Hr1EeXcU03t3n9kXgNLGI6_7OaDpApVkVjfWaUuM3svT'
+url_text_to_speech = 'https://api.eu-gb.text-to-speech.watson.cloud.ibm.com/instances/033cb2d2-2c96-450b-ac92-3eee1477221c'
 authenticator = IAMAuthenticator(apikey_text_to_speech)
 text_to_speech = TextToSpeechV1(authenticator=authenticator)
 text_to_speech.set_service_url(url_text_to_speech)
@@ -108,7 +120,12 @@ class Pet:
 
         self.seekattention_text = "Hi, Where are you?" # When the state becomes seekattention_state, NOVA speaks seekattention_text
         self.eventsToAnnounce = []
-
+        self.counter = 0 #counts the number of waiting state of NOVA
+        self.trackcounter = 0 # counts the number of tracks in the tracklist
+        self.seekattention_counter = 0 #counts the number of visiting seekattentionState
+        self.emergency_counter = 0
+        # self.emailService = getService()
+        self.prevTime = int(time.time())
         self.calendar = CalendarClass(currentDayIndex=0)#change this to be the correct day at some point
         button_t = threading.Thread(target=self.button_thread)
         button_t.start()
@@ -116,7 +133,9 @@ class Pet:
         notification_t = threading.Thread(target=self.notification_thread)
         notification_t.start()
 
-    
+        touch_sensor_t = threading.Thread(target=self.touch_sensor_thread)
+        touch_sensor_t.start()
+
         # ------------ HAPPINESS LEVEL CODE --------------------------------------------------------------
     def increase_happiness_level(self,increaseValue): 
         self.happinessLevel = min(10, self.happinessLevel + increaseValue)
@@ -170,14 +189,43 @@ class Pet:
                         self.eventsToAnnounce.append(newAnnouncement)
 
                     self.calendar.possibleChangeDay(dayIndex)
+                    # getNewEmails(self.emailService, self.prevTime) #this prints
+                    self.prevTime = int(time.time())
+
+    def touch_sensor_thread(self):
+        # Create I2C bus.
+        i2c = busio.I2C(board.SCL, board.SDA)
+
+        # Create MPR121 object.
+        mpr121 = adafruit_mpr121.MPR121(i2c)
+        # Loop forever testing each input and printing when they're touched.
+        while True:
             
+           
+               # Loop through all 12 inputs (0-11).
+            if self.petState == 0:
+                   
+              for i in range(12):
+                # Call is_touched and pass it then number of the input.  If it's touched
+                # it will return True, otherwise it will return False.
+                if mpr121[i].value:
+                    print("increasing happiness level because of stroking")
+                    self.increase_happiness_level(0.05)
+
+            time.sleep(0.25)  # Small delay to keep from spamming output messages.
+
+#
+            
+
+        
 
     #------------- CODE FOR SETUP ----------------------------------------------------------------
     def setup(self):
         #what we need to do:
         # 1. get name 
         # 2. get where you live 
-        # 3. get cat or dog 
+        # 3. get cat or dog
+        # 4. get emergency contact 
         print("hi there! I'm Nova, your new pet and smart assistant! To get started, I need to ask you a few questions")
         time.sleep(1)
         print("firstly, what is your name?")
@@ -187,12 +235,14 @@ class Pet:
         print("")
         print("and what animal do you prefer between a dog and a cat?")
         self.animalType = self.getVoiceInput()
-        
+        print("perfect, we're ready to get started")
 
 
-
-
-
+    # every attention seek, we do a probability
+    # 1. hey, give me attention 
+    # 2. hey, how're you doing
+    # 3. checking if calendar is free and if more than an hour is free: recommend a task between meditate (play meditation), exercise (play easy yoga), podcast
+    
 
     #----------------------------------------------------------------------------------------------
 
@@ -202,7 +252,24 @@ class Pet:
 
     #CODE FOR STATES
 
-
+    def initiateProb(self, happinessLevel, animalType):#check if values are okay
+        if animalType == "dog":
+            multiplier = 1.25
+        else:
+            multiplier = 1
+        if happinessLevel < 1.0:
+            return 0.8*multiplier
+        elif happinessLevel < 2.0:
+            return 0.5*multiplier
+        elif happinessLevel < 3.0:
+            return 0.3*multiplier
+        elif happinessLevel < 4.0:
+            return 0.2*multiplier
+        elif happinessLevel < 5.0:
+            return 0.1*multiplier
+        else:
+            return 0
+        
     def idleState(self): #(this calls decrease happiness level)(ALEERA)
         #in this function you:
             # 1. display the current emotion level
@@ -218,21 +285,23 @@ class Pet:
             self.unhappinessTimer = time.time()
             randomNum = random.random()
             print("randomNum: ", randomNum)
-            if self.happinessLevel < 1.0:
-                if randomNum < 0.2:
-                    self.petState = 3
-            elif self.happinessLevel < 2.0:
-                if randomNum < 0.4:
-                    self.petState = 3
-            elif self.happinessLevel < 3.0:
-                if randomNum < 0.8:
-                    self.petState = 3
-            elif self.happinessLevel < 4.0:
-                if randomNum < 0.5:
-                    self.petState = 3
-            elif self.happinessLevel < 5.0:
-                if randomNum < 0.3:
-                    self.petState = 3
+            if randomNum < (self.initiateProb(self.happinessLevel, self.animalType)):
+                self.petState = 3
+            #if self.happinessLevel < 1.0:
+             #   if randomNum < 0.2:
+              #      self.petState = 3
+            #elif self.happinessLevel < 2.0:
+             #   if randomNum < 0.4:
+              #      self.petState = 3
+            #elif self.happinessLevel < 3.0:
+             #   if randomNum < 0.8:
+              #      self.petState = 3
+            #elif self.happinessLevel < 4.0:
+             #   if randomNum < 0.5:
+              #      self.petState = 3
+            #elif self.happinessLevel < 5.0:
+             #   if randomNum < 0.3:
+              #      self.petState = 3
         print("in idle state. happinss level: ", self.happinessLevel)
         #display stuff -> get the emotion level and display the face
         #get the weather -> display the weather
@@ -258,7 +327,7 @@ class Pet:
         chunk = 1024
         filename = 'audio.wav'
         duration = 5
-        dev_index = 0
+        dev_index = 1
         # Initialize PyAudio
         audio_interface = pyaudio.PyAudio()
         print("Device count:")
@@ -346,7 +415,7 @@ class Pet:
         chunk = 1024
         filename = 'audio.wav'
         duration = 5
-        dev_index = 0
+        dev_index = 1
         # Initialize PyAudio
         audio_interface = pyaudio.PyAudio()
         print("Device count:")
@@ -392,7 +461,6 @@ class Pet:
                 return recognized_text
        
 
-        #NLP STUFF GOES HERE
         except:
             print("couldn't translate audio to text")
             return 0
@@ -462,7 +530,11 @@ class Pet:
             return
         
         #------------------------------------- NEWS ------------------------------
-
+        if taskTitle == "n":
+            print("Here are the news headlines")
+            print(getTopNewsHeadlines(task[1]))
+            self.petState = 0
+            return
         #-------------------------------------------------------------------------
 
         else:
@@ -478,14 +550,18 @@ class Pet:
             try:
                 response_text = response['output']['generic'][0]['text']
             except:
-                print("invalid. say something else. going back to listen state")
-                self.petState = 1
+                print("I didn't understand. Press my button if you want to repeat yourself.")
+                self.petState = 0
                 return
             print("Watson Assistant: ", response_text)
 
         
             if(response_text == "waiting for reply"):
-                self.petState = 1
+                self.counter = self.counter + 1
+                if(self.counter > 10): #condition to move on to the seekattention state
+                    self.petState = 3
+                else:
+                    self.petState = 1
         
     #-------------------------------------------------------------------------------------------------------------------------------------
     #News_Podcast
@@ -599,6 +675,8 @@ class Pet:
                 # play_response(response_text)
                 print("the speaker would say: ", response_text)
                 get_weather_data()
+                self.counter = 0
+                self.emergency_counter = 0
                 self.petState = 1
 
     #-------------------------------------------------------------------------------------------------------------------------------------
@@ -609,6 +687,8 @@ class Pet:
                 # play_response(response_text)
                 print("the speaker would say: ", response_text)
                 spotify_track_find_and_play()
+                self.counter = 0
+                self.emergency_counter = 0
                 self.petState = 1
 
     #-------------------------------------------------------------------------------------------------------------------------------------
@@ -632,7 +712,20 @@ class Pet:
                 sp.pause_playback()
                 # play_response("The audio is now paused")
                 print("the speaker would say: the audio is now paused")
+                self.counter = 0
+                self.emergency_counter = 0
                 self.petState = 1
+    #-------------------------------------------------------------------------------------------------------------------------------------
+    #Irrelevant
+
+            elif(response_text == 'irrelevant'):
+
+                #play_response("I am sorry could you repeat what you just said?")
+                print("I am sorry could you repeat what you just said?")
+                self.counter = 0
+                self.emergency_counter = 0
+                self.petState = 1
+
     #-------------------------------------------------------------------------------------------------------------------------------------
     #Termination
 
@@ -640,29 +733,144 @@ class Pet:
                 # End the session
                 #play_response(response_text)
                 print("the speaker would say: ", response_text)
+                self.counter = 0
+                self. emergency_counter = 0
 
                 assistant.delete_session(draft_environment_id, session_id)
                 sys.exit()
-                #self.petState = 0
+                #self.petState = 1
     #-------------------------------------------------------------------------------------------------------------------------------------
             else:
                 # play_response(response_text)
                 print("the speaker would say: ", response_text)
+                self.counter = 0
+                self.emergency_counter = 0
                 self.petState = 1
     #-------------------------------------------------------------------------------------------------------------------------------------
     
+    #def seekAttentionState(self):
     
+    #    print("in seek attention state")
+    #    print("I'm seeking attention")#play on speaker
+    #    self.petState = 0
 
-
-        
 
     def seekAttentionState(self):
+        file_name = "tracklist.txt"
+
         print("in seek attention state")
-        print("I'm seeking attention")#play on speaker
-        self.petState = 0
+        try:
+            with open(file_name, "r") as file:
+                lines = file.readlines()
+                number_of_track = len(lines)
+        except:
+            pass
+
+
+        if(number_of_track > 1 and self.seekattention_counter % 2 == 0):
+            #play_response("Everyday is a good day to listen to music, can I play a song based on your playing history?")
+            print("Everyday is a good day to listen to music, can I play a song based on your playing history?")
+            record_audio()
+
+            try:
+                with open('audio.wav', 'rb') as audio:
+                    response = speech_to_text.recognize(audio=audio, content_type='audio/wav')
+                    text = response.result['results'][0]['alternatives'][0]['transcript']
+                    #return text
+            except :
+                print("Speech recognition could not understand audio.")
+                text = "pass"
+            
+            if("yes" in text or "sure" in text or "go" in text):
+                try:
+                    with open(file_name, "r") as file:
+                        lines = file.readlines()
+                        random_track = random.choice(lines).strip()
+                        spotify_track_find_and_play_v2(random_track)
+                        self.seekattention_counter = self.seekattention_counter + 1
+                        self.counter = 0
+                        self.trackcounter = number_of_track
+                        self.petState = 1
+                except FileNotFoundError:
+                    print("The file does not exist.")
+                    #play_response("The file does not exist")
+                    self.seekattention_counter = self.seekattention_counter + 1
+                    self.counter = 0
+                    self.petState = 1
+                    pass
+                except IOError:
+                    print("An error occurred while reading the file.")
+                    #play_response("An error occurred while reading the file")
+                    self.seekattention_counter = self.seekattention_counter + 1
+                    self.counter = 0
+                    self.petState = 1
+                    pass
+            
+            elif("no" in text or "stop" in text):
+                #play_response("Okay let me know if you need anything else")
+                print("Okay let me know if you need anything else")
+                self.seekattention_counter = self.seekattention_counter + 1
+                self.counter = 0
+                self.emergency_counter = 0
+                self.petState = 1
+            
+            elif("pass" in text):
+                self.seekattention_counter = self.seekattention_counter + 1
+                self.emergency_counter = self.emergency_counter + 1
+                self.counter = 0
+                self.petState = 1
+            
+
+            else:
+                self.seekattention_counter = self.seekattention_counter + 1
+                self.counter = 0
+                self.emergency_counter = self.emergency_counter + 1
+                self.petState = 1
+
+
+
+        elif(self.trackcounter == 0 and self.seekattention_counter % 2 == 0):
+            #play_response("Let me know your taste of music! I can search a music and play it for you. Try this by just saying play me a music!")
+            print("Let me know your taste of music! I can search a music and play it for you. Try this by just saying play me a music!")
+            
+            
+            self.seekattention_counter = self.seekattention_counter + 1
+            self.counter = 0
+            self.petState = 1
+        #-------------------------------------------------------------------------------------------------------------------------------------
+        #Emergency state
+        elif(self.emergency_counter > 4):
+            print("Are you okay? If don't respond to this I am assuming you are in danger and I am asking for some help to your Whatsapp friend")
+            sendSMS()
+            sys.exit()
+        
+        #-------------------------------------------------------------------------------------------------------------------------------------
+        
+        else:
+            #play_response("Hello, where are you?")
+            print("Hello where are you?")
+            self.seekattention_counter = self.seekattention_counter + 1
+            self.counter = 0
+            self.petState = 1
+
 
     def alarmState(self):
         print("sounding alarm")
+        # pygame.mixer.init()
+
+        # # Load the audio file
+        # audio_file = "digital_alarm.wav"
+        # pygame.mixer.music.load(audio_file)
+
+        # # Play the audio file
+        # pygame.mixer.music.play()
+
+        # # while audio playing, wait
+        # while pygame.mixer.music.get_busy():
+        #  pygame.time.Clock().tick(10)
+
+        
+        # pygame.mixer.quit()
 
     def run(self):
         while(True):
@@ -676,6 +884,8 @@ class Pet:
                 self.seekAttentionState()
             if self.petState == 4:
                 self.alarmState()
+
+
 
 def __main__():
 

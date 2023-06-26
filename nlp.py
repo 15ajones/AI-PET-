@@ -83,6 +83,7 @@ def categoriseText(text):#redo with corrent authentification process
             keywords.append(i['text'])
             emotions.append(i['emotion'])
     except:
+        print("no keywords detected")
         return ["conv"]#no keywords
     print(keywords)
     #print(emotions)
@@ -177,9 +178,36 @@ def categoriseText(text):#redo with corrent authentification process
     elif any(t == "weather" for t in keywords):
         print ("weather function")
         return ["w"]
-    elif any(t == "news" for t in keywords):
+    #elif any(t == "news" for t in keywords):
+     #   print ("news function")
+      #  return ["n"]
+    elif any(t == "news" for t in textList) or any(t == "headlines" for t in textList) or any(t == "headlines?" for t in textList):#needs changing
         print ("news function")
-        return ["n"]
+        #newsCategory = ""
+        if any(t == "sport" for t in textList) or any(t == "sports" for t in textList):
+            newsCategory = "sport"
+        elif any(t == "entertainment" for t in textList):
+            newsCategory = "entertainment"
+        elif any(t == "technology" for t in textList):
+            newsCategory = "technology"
+        elif any(t == "science" for t in textList):
+            newsCategory = "science"
+        elif any(t == "health" for t in textList):
+            newsCategory = "health"
+        elif any(t == "food" for t in textList):
+            newsCategory = "food"
+        elif any(t == "business" for t in textList):
+            newsCategory = "business"
+        elif any(t == "world" for t in textList) or any(t == "international" for t in textList):
+            newsCategory = "world"
+        elif any(t == "environment" for t in textList) or any(t == "environmental" for t in textList):
+            newsCategory = "environment"
+        elif any(t == "politics" for t in textList) or any(t == "political" for t in textList):
+            newsCategory = "politics"
+        #elif any(t == "top" for t in textList):
+        else:
+            newsCategory = "top"
+        return ["n"] ,[newsCategory]
     elif any (t == "music" for t in keywords) or any(t == "song" for t in keywords) or any(t == "songs" for t in keywords):
         print ("music function")
         genre = []#or artist
