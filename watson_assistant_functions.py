@@ -11,7 +11,7 @@ import speech_recognition as sr
 import pyttsx3
 import sys
 import pydub
-import simpleaudio
+import simpleaudio as sa
 from ibm_watson import TextToSpeechV1
 from ibm_watson import SpeechToTextV1
 from ibm_cloud_sdk_core.authenticators import IAMAuthenticator
@@ -27,6 +27,9 @@ import webbrowser
 import os
 import base64
 from requests import post
+
+from pydub import AudioSegment
+from pydub.playback import play
 
 # Spotify API credentials
 client_id = 'a5c2a4ce9c0c463fa474bf55fb0750c7'
@@ -97,22 +100,8 @@ def play_response(response_text):
     with open(output_file, 'wb') as audio_file:
         audio_file.write(response_speech.content)
 
-    # Initialize Pygame audio
-    pygame.mixer.init()
-
-    # Load the audio file
-    audio_file = "output.wav"
-    pygame.mixer.music.load(audio_file)
-
-    # Play audio
-    pygame.mixer.music.play()
-
-    # continue while audio is still playing
-    time.sleep(5)
-
-    # exit mixer
-    pygame.mixer.quit()
-
+    audio = AudioSegment.from_wav("output.wav")
+    play(audio)
 
 
 
@@ -175,6 +164,63 @@ def get_weather_data():
 
     else:
         print("Error:", response["message"])
+
+def get_display_weather_data():
+    BASE_URL = "http://api.openweathermap.org/data/2.5/weather?"
+    API_KEY = '417af52d6a054b1434bb65cbfd0f2ae2'
+    CITY = 'London'
+
+    url = BASE_URL + "appid=" + API_KEY + "&q=" + CITY
+    response = requests.get(url).json()
+
+    if response["cod"] == 200:
+        kelvin_temperature = response["main"]["temp"]
+        celsius_temperature = kelvin_temperature - 273.15  # Convert from Kelvin to Celsius
+
+        weather_data = {
+            "City": response["name"],
+            "Weather": response["weather"][0]["description"],
+            "Temperature": celsius_temperature,
+            "Humidity": response["main"]["humidity"],
+            "Wind Speed": response["wind"]["speed"],
+            "Visibility": response["visibility"],
+        }
+
+        print("Weather in", weather_data["City"])
+        print("Description:", weather_data["Weather"])
+        #print("Temperature:", weather_data["Temperature"], "°C")
+        #print("Humidity:", weather_data["Humidity"], "%")
+        #print("Wind Speed:", weather_data["Wind Speed"], "m/s")
+        #print("Visibility:", weather_data["Visibility"])
+
+        # Determine the number based on the weather description
+        description = weather_data["Weather"].lower()
+        #cloud, drizzle, night, nightcloud, rain, snow, sun, suncloud, thunder
+        if description == "clear sky":
+           return "sun"
+        
+        elif description in ["few clouds", "scattered clouds", "broken clouds", "overcast clouds"]:
+            return "suncloud"
+
+        elif description in ["mist", "fog", "haze", "smoke"]:
+            return "thunder"
+
+        elif description in ["light rain", "showers"]:
+            return "drizzle"
+        
+        elif description in ["moderate rain", "heavy rain"]:
+            return "rain"
+
+        elif description == "thunderstorm":
+            return "thunder"
+            
+        elif description in ["snow", "light snow", "moderate snow", "heavy snow"]:
+            return "snow"
+        
+        else:
+            return "suncloud"
+
+
 
 
 def spotify_podcast_find(podcast_name, episode_name):

@@ -1,33 +1,59 @@
-import pygame
-import time
+# import pygame
 
-# Initialize Pygame
-pygame.init()
+# # Initialize Pygame
+# pygame.init()
 
-# Initialize Pygame audio
-pygame.mixer.init()
+# # Set the audio device
+# pygame.mixer.init()
 
-# Load the audio file
-audio_file = "output.wav"
-pygame.mixer.music.load(audio_file)
+# # Load the audio file
+# sound = pygame.mixer.Sound("output.wav")
 
-# Play audio
-pygame.mixer.music.play()
+# # Play the audio file
+# sound.play()
 
-# Event handling loop
-clock = pygame.time.Clock()
-running = True
+# # Wait until the sound finishes playing
+# pygame.time.wait(sound.get_length() * 1000)
 
-while running:
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
+# # Quit Pygame
+# pygame.quit()
 
+# import simpleaudio as sa
 
+# filename = 'output.wav'
+# wave_obj = sa.WaveObject.from_wave_file(filename)
+# play_obj = wave_obj.play()
+# play_obj.wait_done()  # Wait until sound has finished playing
 
-    # Limit the frame rate to avoid high CPU usage
-    clock.tick(30)
+#!usr/bin/env python  
+#coding=utf-8  
 
-# Exit mixer
-pygame.mixer.quit()
-pygame.quit()
+import pyaudio  
+import wave  
+
+#define stream chunk   
+chunk = 1024  
+
+#open a wav format music  
+f = wave.open(r"output.wav","rb")  
+#instantiate PyAudio  
+p = pyaudio.PyAudio()  
+#open stream  
+stream = p.open(format = p.get_format_from_width(f.getsampwidth()),  
+                channels = f.getnchannels(),  
+                rate = f.getframerate(),  
+                output = True)  
+#read data  
+data = f.readframes(chunk)  
+
+#play stream  
+while data:  
+    stream.write(data)  
+    data = f.readframes(chunk)  
+
+#stop stream  
+stream.stop_stream()  
+stream.close()  
+
+#close PyAudio  
+p.terminate() 

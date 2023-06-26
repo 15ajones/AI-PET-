@@ -33,6 +33,7 @@ from spotipy.oauth2 import SpotifyClientCredentials
 
 from watson_assistant_functions import spotify_track_find_and_play
 from watson_assistant_functions import get_weather_data
+from watson_assistant_functions import get_display_weather_data
 from watson_assistant_functions import play_response
 from watson_assistant_functions import spotify_podcast_find
 from watson_assistant_functions import record_audio
@@ -112,10 +113,10 @@ class Pet:
         #below happiness level of 5, the pet begins to seek attention
         #how often the pet seeks attention increases until happiness level 2, then begins to decrease (the pet is now low energy) (so rise and then fall between 0 and 5, like a bell curve )
         
-        self.animalType = "dog" #we are assuming its dog for now, but we can eventually change this to also include cat
+        self.animalType = "cat" #we are assuming its dog for now, but we can eventually change this to also include cat
         self.unhappinessTimer = time.time()
         self.lastAudioInput = ""
-
+        self.displayWeather = "suncloud"
         self.reply_text = "Hello, My name is NOVA. How can I help you today?" # Default reply text for replystate.
 
         self.seekattention_text = "Hi, Where are you?" # When the state becomes seekattention_state, NOVA speaks seekattention_text
@@ -133,8 +134,9 @@ class Pet:
         notification_t = threading.Thread(target=self.notification_thread)
         notification_t.start()
 
-        touch_sensor_t = threading.Thread(target=self.touch_sensor_thread)
-        touch_sensor_t.start()
+        display_thread_t = threading.Thread(target=self.display_thread)
+        display_thread_t.start()
+
 
         # ------------ HAPPINESS LEVEL CODE --------------------------------------------------------------
     def increase_happiness_level(self,increaseValue): 
@@ -148,6 +150,13 @@ class Pet:
 
     def button_thread(self): #(this function calls increase happiness level)
         #this function will be run as a thread constantly (you should constantly be able to detect a button press)
+
+        # Create I2C bus.
+        i2c = busio.I2C(board.SCL, board.SDA)
+
+        # Create MPR121 object.
+        mpr121 = adafruit_mpr121.MPR121(i2c)
+        # Loop forever testing each input and printing when they're touched.
         while True:
             if not GPIO.input(18):#replace with wherever the button is
                 #button has been pressed
@@ -157,62 +166,111 @@ class Pet:
                 elif self.petState == 4:
                     self.petState = 0
                 print("button pressed")
-                time.sleep(1)
+                
 
+                if self.petState == 0:
+                   
+                    for i in range(12):
+                    # Call is_touched and pass it then number of the input.  If it's touched
+                    # it will return True, otherwise it will return False.
+                        if mpr121[i].value:
+                            print("increasing happiness level because of stroking")
+                            self.increase_happiness_level(0.05)
+                time.sleep(1)
+    
+
+
+    def display_thread(self):
+        animalNotWeather = True
+        pygame.init()
+        display_width = 1920
+
+        display_height = 1080
+        black = (0, 0, 0)
+        white = (255, 255, 255)
+        while True:
+            if animalNotWeather:
+                animalFace = min(4, int(self.happinessLevel // 2))
+                image = self.animalType + str(animalFace) + ".bmp"
+                #display animal image
+
+                
+
+            else:
+                image = self.displayWeather + ".bmp"
+                #display weather image
+                
+            gameDisplay = pygame.display.set_mode((display_width, display_height))
+            clock = pygame.time.Clock()
+            crashed = False
+
+            Img = pygame.image.load(image)
+            Img = pygame.transform.scale(Img, (display_width, display_height))
+
+            def ImgFunction(x, y):
+                gameDisplay.blit(Img, (x, y))
+            
+            x = (display_width - Img.get_width()) /2
+            y = (display_height - Img.get_height())/2
+            # while not crashed and i < 100:
+            #     for event in pygame.event.get():
+            #         if event.type == pygame.QUIT:
+            #             crashed = True
+            #             break
+
+            #     gameDisplay.fill(white)
+            #     ImgFunction(x, y)
+
+            #     pygame.display.update()
+            #     clock.tick(60)
+            #     i+=1
+
+            gameDisplay.fill(white)
+            ImgFunction(x, y)
+
+            pygame.display.update()
+            time.sleep(3)
+            animalNotWeather = not animalNotWeather
+            
+            
 
     def notification_thread(self):
         current_time = time.time()
+        counter = 0
         while True:
-            time.sleep(1)
-    
+            time.sleep(10)
+            counter+=1
             if self.petState==0:
-                if time.time() - current_time >= 10:
-                    print("checking for notifications")
-                    current_time = time.time()
+                print("checking for notifications")
+                current_time = time.time()
 
-                    tz_London = pytz.timezone('Europe/London')
+                tz_London = pytz.timezone('Europe/London')
 
-                    # Get the current time in London
-                    datetime_London = datetime.now(tz_London)
+                # Get the current time in London
+                datetime_London = datetime.now(tz_London)
 
-                    # Format the time as a string and print it
-                    dayTime = datetime_London.strftime("%H%M")
+                # Format the time as a string and print it
+                dayTime = datetime_London.strftime("%H%M")
 
 
-                    # get day of week as an integer
-                    dayIndex = datetime_London.weekday()
-                    
-                    newAnnouncement = self.calendar.checkAnnouncements(dayTime)#change it to be the current time
-                    if newAnnouncement == "alarm":
-                        self.petState = 4
-                    elif newAnnouncement:
-                        self.eventsToAnnounce.append(newAnnouncement)
+                # get day of week as an integer
+                dayIndex = datetime_London.weekday()
+                
+                newAnnouncement = self.calendar.checkAnnouncements(dayTime)#change it to be the current time
+                if newAnnouncement == "alarm":
+                    self.petState = 4
+                elif newAnnouncement:
+                    self.eventsToAnnounce.append(newAnnouncement)
 
-                    self.calendar.possibleChangeDay(dayIndex)
-                    # getNewEmails(self.emailService, self.prevTime) #this prints
-                    self.prevTime = int(time.time())
+                self.calendar.possibleChangeDay(dayIndex)
+                # getNewEmails(self.emailService, self.prevTime) #this prints
+                self.prevTime = int(time.time())
+            if counter >= 10:
+                counter = 0
+                self.displayWeather = get_display_weather_data()
+                print("weather on display is now: ", self.displayWeather)
 
-    def touch_sensor_thread(self):
-        # Create I2C bus.
-        i2c = busio.I2C(board.SCL, board.SDA)
-
-        # Create MPR121 object.
-        mpr121 = adafruit_mpr121.MPR121(i2c)
-        # Loop forever testing each input and printing when they're touched.
-        while True:
-            
-           
-               # Loop through all 12 inputs (0-11).
-            if self.petState == 0:
-                   
-              for i in range(12):
-                # Call is_touched and pass it then number of the input.  If it's touched
-                # it will return True, otherwise it will return False.
-                if mpr121[i].value:
-                    print("increasing happiness level because of stroking")
-                    self.increase_happiness_level(0.05)
-
-            time.sleep(0.25)  # Small delay to keep from spamming output messages.
+  
 
 #
             
@@ -767,7 +825,7 @@ class Pet:
             pass
 
 
-        if(number_of_track > 1 and self.seekattention_counter % 2 == 0):
+        if(number_of_track > 1 and self.seekattention_counter == 2):
             #play_response("Everyday is a good day to listen to music, can I play a song based on your playing history?")
             print("Everyday is a good day to listen to music, can I play a song based on your playing history?")
             record_audio()
@@ -822,9 +880,10 @@ class Pet:
             
 
             else:
+                play_response("I could not understand your speech. Let me know if you want me to play a music!")
                 self.seekattention_counter = self.seekattention_counter + 1
                 self.counter = 0
-                self.emergency_counter = self.emergency_counter + 1
+                #self.emergency_counter = self.emergency_counter + 1
                 self.petState = 1
 
 
@@ -837,6 +896,87 @@ class Pet:
             self.seekattention_counter = self.seekattention_counter + 1
             self.counter = 0
             self.petState = 1
+
+        elif self.seekattention_counter == 3:
+            randomNum = random.random()
+            if randomNum < 0.5:
+                #meditation task
+                play_response("Medication is a good remedy for a mental disorder. If you feel nervous I can introduce some medication program. Do you want me to?")
+                print("Medication is a good remedy for a mental disorder. If you feel nervous I can introduce some medication program")
+                
+                record_audio()
+                try:
+                    with open('audio.wav', 'rb') as audio:
+                        response = speech_to_text.recognize(audio=audio, content_type='audio/wav')
+                        text = response.result['results'][0]['alternatives'][0]['transcript']
+                        #return text
+                except :
+                    print("Speech recognition could not understand audio.")
+                    text = "pass"
+
+                if("yes" in text or "sure" in text or "go" in text):
+                    spotify_podcast_find("Meditation self", "yoga music, relaxing music, calming music")
+                    self.seekattention_counter = self.seekattention_counter + 1
+                    self.counter = 0
+                    self.petState = 1
+                    
+                elif("no" in text or "stop" in text):
+                    play_response("Okay let me know if you need anything else")
+                    self.seekattention_counter = self.seekattention_counter + 1
+                    self.counter = 0
+                    self.petState = 1
+
+                elif("pass" in text):
+                    self.seekattention_counter = self.seekattention_counter + 1
+                    self.counter = 0
+                    self.emergency_counter = self.emergency_counter + 1
+                    self.petState = 1
+
+                else:
+                    play_response("I could not understand your speech. If you want me to play a medication podcast, just say it to me!")
+                    self.seekattention_counter = self.seekattention_counter + 1
+                    self.counter = 0
+                    self.petState = 1
+                #pass
+            else:
+                #exercise task
+                play_response("Did you know that regular exercise can decrease the heart attack rate by 80 percent? If you need any help to start an exercise, I can play a tutorial for you. Do you want me to play it?")
+                print("Did you know that regular exercise can decrease the heart attack rate by 80 percent? If you need any help to start an exercise, I can play a tutorial for you. Do you want me to play it?")
+                record_audio()
+                try:
+                    with open('audio.wav', 'rb') as audio:
+                        response = speech_to_text.recognize(audio=audio, content_type='audio/wav')
+                        text = response.result['results'][0]['alternatives'][0]['transcript']
+                        #return text
+                except :
+                    print("Speech recognition could not understand audio.")
+                    text = "pass"
+
+                if("yes" in text or "sure" in text or "go" in text):
+                    #spotify_podcast_find("Meditation self", "yoga music, relaxing music, calming music")
+                    self.seekattention_counter = self.seekattention_counter + 1
+                    self.counter = 0
+                    self.petState = 1
+                    
+                elif("no" in text or "stop" in text or "I am okay"):
+                    play_response("Okay let me know if you need anything else")
+                    self.seekattention_counter = self.seekattention_counter + 1
+                    self.counter = 0
+                    self.petState = 1
+
+                elif("pass" in text):
+                    self.seekattention_counter = self.seekattention_counter + 1
+                    self.counter = 0
+                    self.emergency_counter = self.emergency_counter + 1
+                    self.petState = 1
+
+                else:
+                    play_response("I could not understand your speech. If you want me to play a exercise tutorial, just say it to me!")
+                    self.seekattention_counter = self.seekattention_counter + 1
+                    self.counter = 0
+                    self.petState = 1
+                #pass
+
         #-------------------------------------------------------------------------------------------------------------------------------------
         #Emergency state
         elif(self.emergency_counter > 4):
@@ -889,8 +1029,9 @@ class Pet:
 
 def __main__():
 
-    pet = Pet()
-    pet.run()
+    #pet = Pet()
+    # pet.run()
+    play_response("Hi my name is Nova")
 
 __main__()
 
