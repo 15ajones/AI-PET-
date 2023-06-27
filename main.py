@@ -24,6 +24,7 @@ from ibm_watson import AssistantV2
 from ibm_watson import SpeechToTextV1
 from nlp import hasTime, hasDate, getOccurence, getStrongestEmotion, categoriseText
 from newsapiFile import getTopNewsHeadlines
+#from phone import receive_data
 import pygame
 from ibm_watson import TextToSpeechV1
 from ibm_cloud_sdk_core.authenticators import IAMAuthenticator
@@ -44,7 +45,7 @@ from emailFile import list_emails, getService, getNewEmails
 #from weather import Weather
 GPIO.setmode(GPIO.BCM)
 GPIO.setup(18, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-
+from flask import Flask, request
 
 import board
 import busio
@@ -97,6 +98,9 @@ session = assistant.create_session(draft_environment_id).get_result()
 session_id = session['session_id']
 
 
+
+
+
 class Pet:
     def __init__(self):
         
@@ -108,6 +112,10 @@ class Pet:
         #3 is seeking attention (goes to either 0 or 1)
         self.userName = ""
         self.location = "London"
+        self.emailAddress = ""
+        self.contactNumber = ""
+        self.spUsername = ""
+        self.spPassword = ""
         self.happinessLevel = 10.0
         #happiness level is minimum 0, maximum 10 (different emotion face for every 2 levels, so we need 5 emotion faces)
         #below happiness level of 5, the pet begins to seek attention
@@ -137,6 +145,8 @@ class Pet:
         display_thread_t = threading.Thread(target=self.display_thread)
         display_thread_t.start()
 
+
+        
 
         # ------------ HAPPINESS LEVEL CODE --------------------------------------------------------------
     def increase_happiness_level(self,increaseValue): 
@@ -168,18 +178,18 @@ class Pet:
                 print("button pressed")
                 
 
-                if self.petState == 0:
-                   
-                    for i in range(12):
-                    # Call is_touched and pass it then number of the input.  If it's touched
-                    # it will return True, otherwise it will return False.
-                        if mpr121[i].value:
-                            print("increasing happiness level because of stroking")
-                            self.increase_happiness_level(0.05)
-                time.sleep(1)
+            if self.petState == 0:
+                
+                for i in range(12):
+                # Call is_touched and pass it then number of the input.  If it's touched
+                # it will return True, otherwise it will return False.
+                    if mpr121[i].value:
+                        print("increasing happiness level because of stroking")
+                        self.increase_happiness_level(0.05)
+            time.sleep(1)
     
-
-
+    
+       
     def display_thread(self):
         animalNotWeather = True
         pygame.init()
@@ -188,7 +198,11 @@ class Pet:
         display_height = 1080
         black = (0, 0, 0)
         white = (255, 255, 255)
+        gameDisplay = pygame.display.set_mode((display_width, display_height))
         while True:
+            if self.petState == 0:
+                time.sleep(3)
+                continue
             if animalNotWeather:
                 animalFace = min(4, int(self.happinessLevel // 2))
                 image = self.animalType + str(animalFace) + ".bmp"
@@ -200,7 +214,7 @@ class Pet:
                 image = self.displayWeather + ".bmp"
                 #display weather image
                 
-            gameDisplay = pygame.display.set_mode((display_width, display_height))
+            
             clock = pygame.time.Clock()
             crashed = False
 
@@ -240,6 +254,7 @@ class Pet:
         while True:
             time.sleep(10)
             counter+=1
+            counter = min(10, counter)
             if self.petState==0:
                 print("checking for notifications")
                 current_time = time.time()
@@ -265,45 +280,14 @@ class Pet:
                 self.calendar.possibleChangeDay(dayIndex)
                 # getNewEmails(self.emailService, self.prevTime) #this prints
                 self.prevTime = int(time.time())
-            if counter >= 10:
-                counter = 0
-                self.displayWeather = get_display_weather_data()
-                print("weather on display is now: ", self.displayWeather)
+                if counter >= 10:
+                    counter = 0
+                    self.displayWeather = get_display_weather_data()
+                    print("weather on display is now: ", self.displayWeather)
 
   
 
 #
-            
-
-        
-
-    #------------- CODE FOR SETUP ----------------------------------------------------------------
-    def setup(self):
-        #what we need to do:
-        # 1. get name 
-        # 2. get where you live 
-        # 3. get cat or dog
-        # 4. get emergency contact 
-        print("hi there! I'm Nova, your new pet and smart assistant! To get started, I need to ask you a few questions")
-        time.sleep(1)
-        print("firstly, what is your name?")
-        self.userName = self.getVoiceInput()
-        print("excellent, now what country/city do you live in")
-        self.location = self.getVoiceInput()
-        print("")
-        print("and what animal do you prefer between a dog and a cat?")
-        self.animalType = self.getVoiceInput()
-        print("perfect, we're ready to get started")
-
-
-    # every attention seek, we do a probability
-    # 1. hey, give me attention 
-    # 2. hey, how're you doing
-    # 3. checking if calendar is free and if more than an hour is free: recommend a task between meditate (play meditation), exercise (play easy yoga), podcast
-    
-
-    #----------------------------------------------------------------------------------------------
-
 
 
     #----------------------------------------------------------------------------------------------------------------------------------
@@ -385,7 +369,7 @@ class Pet:
         chunk = 1024
         filename = 'audio.wav'
         duration = 5
-        dev_index = 1
+        dev_index = 0
         # Initialize PyAudio
         audio_interface = pyaudio.PyAudio()
         print("Device count:")
@@ -461,9 +445,11 @@ class Pet:
 
     def seekMoreInfo(self, infoTitle):
         print("please provide the ",infoTitle, " for the event.")#played by the speaker
+        play_response("please provide the "+infoTitle+" for the event.")
         newInfo = self.getVoiceInput()
         while newInfo == 0:
             print("didn't hear that. please provide the ",infoTitle, " for the event.")
+            play_response("didn't hear that. please provide the "+infoTitle+ " for the event.")
             newInfo = self.getVoiceInput()
         return newInfo
 
@@ -473,7 +459,7 @@ class Pet:
         chunk = 1024
         filename = 'audio.wav'
         duration = 5
-        dev_index = 1
+        dev_index = 0
         # Initialize PyAudio
         audio_interface = pyaudio.PyAudio()
         print("Device count:")
@@ -573,16 +559,27 @@ class Pet:
             if taskTitle == "check":
                 result = self.calendar.check(task[1], task[2])
                 print("checking calendar. result is this: ", result)
+                if result == 0:
+                    play_response("You have no events at this timel.")
+                else:
+                    play_response("You have the following event at this time. " + result)
             elif taskTitle == "plan":
                 result = self.calendar.plan(task[1], task[2], task[3])
                 print("planning in calendar. result is this: ", result)
             elif taskTitle == "alarm":
                 result = self.calendar.setAlarm(task[1], task[2])
-                print("adding alarm. result is this: ", result)
+                print("adding alarm. result is this: " +  result)
+                if result == 0:
+                    play_response("this event has been added to your calendar")
+                else:
+                    play_response("you already have an event at this time. This event is " + result)
             elif taskTitle == "reminder":
                 result = self.calendar.plan(task[1], task[2], "reminder "+ task[3])
                 print("adding reminder. result is this: ", result)
-
+                if result == 0:
+                    play_response("this reminder has been added to your calendar")
+                else:
+                    play_response("you already have an event at this time. This event is " + result)
 
             self.petState = 0
             return
@@ -626,7 +623,7 @@ class Pet:
 
             elif(response_text == 'News Podcast will be played soon'):
                 
-                # play_response(response_text)
+                play_response(response_text)
                 print("the speaker would say: ", response_text)
                 spotify_podcast_find('The News Agent', 'Lord, Ladies, and Boris Johnson honour')
                 self.petState = 1
@@ -636,7 +633,7 @@ class Pet:
 
             elif(response_text == 'Comedy Podcast will be played soon'):
                 
-                # play_response(response_text)
+                play_response(response_text)
                 print("the speaker would say: ", response_text)
                 spotify_podcast_find('Please Tell Me A Story', 'Omid: "A Fine Piece Of Ass')
                 self.petState = 1
@@ -646,7 +643,7 @@ class Pet:
 
             elif(response_text == 'Tennis Podcast will be played soon'):
                 
-                # play_response(response_text)
+                play_response(response_text)
                 print("the speaker would say: ", response_text)
                 spotify_podcast_find('The Tennis Podcast', 'Roland Garros Day 14 - lga in a classic; Djokovic-Ruud preview')
                 self.petState = 1
@@ -655,9 +652,8 @@ class Pet:
     #Sports_Podcast_Cricket
 
             elif(response_text == 'Cricket Podcast will be played soon'):
-
-                # play_response(response_text)
-                print("the speaker would say: ", response_text)
+                print("the speaker should say: ", response_text)
+                play_response(response_text)
                 spotify_podcast_find('The Vaughany and Tuffers Cricket Club', 'Reflecting on an incredible year with Sam Curran')
                 self.petState = 1
 
@@ -667,7 +663,7 @@ class Pet:
 
             elif(response_text == 'Football will be played soon'):
             
-                # play_response(response_text)
+                play_response(response_text)
                 print("the speaker would say: ", response_text)
                 spotify_podcast_find('Football Daily', 'The Day After Man Citys Treble Win')
                 self.petState = 1
@@ -677,7 +673,7 @@ class Pet:
 
             elif(response_text == 'Golf Podcast will be played soon'):
                 
-                # play_response(response_text)
+                play_response(response_text)
                 print("the speaker would say: ", response_text)
                 spotify_podcast_find('Beefs Golf Club', 'The First Tee')
                 self.petState = 1
@@ -688,7 +684,7 @@ class Pet:
 
             elif(response_text == 'Pop Podcast will be played soon'):
                 
-                # play_response(response_text)
+                play_response(response_text)
                 print("the speaker would say: ", response_text)
                 spotify_podcast_find('Switched on Pop', 'Listening to Draft Punk: Random Access Memories')
                 self.petState = 1
@@ -699,7 +695,7 @@ class Pet:
 
             elif(response_text == 'Classic Podcast will be played soon'):
                 
-                # play_response(response_text)
+                play_response(response_text)
                 print("the speaker would say: ", response_text)
                 spotify_podcast_find('That Classic Podcast', 'So long, farewell, auf wiedersehan, goodbye!')
                 self.petState = 1
@@ -710,7 +706,7 @@ class Pet:
 
             elif(response_text == 'Jazz Podcast will be played soon'):
                 
-                # play_response(response_text)
+                play_response(response_text)
                 print("the speaker would say: ", response_text)
                 spotify_podcast_find('The Jazz Session', 'The Jazz Session #617: Bill Lowe')
                 self.petState = 1
@@ -721,7 +717,7 @@ class Pet:
 
             elif(response_text == 'Rock Podcast will be played soon'):
                 
-                # play_response(response_text)
+                play_response(response_text)
                 print("the speaker would say: ", response_text)
                 spotify_podcast_find('Rockonteurs with Gary Kemp and Guy Pratt', 'S4E27: Jerry Shirley')
                 self.petState = 1
@@ -730,7 +726,7 @@ class Pet:
     #Weather
             elif(response_text == 'Checking the weather right now in London'):
                 
-                # play_response(response_text)
+                play_response(response_text)
                 print("the speaker would say: ", response_text)
                 get_weather_data()
                 self.counter = 0
@@ -742,7 +738,7 @@ class Pet:
 
             elif(response_text == 'Sure, can you kindly teach me the title of the music and the name of the artist?'):
 
-                # play_response(response_text)
+                play_response(response_text)
                 print("the speaker would say: ", response_text)
                 spotify_track_find_and_play()
                 self.counter = 0
@@ -768,7 +764,7 @@ class Pet:
                 sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=client_id, client_secret=client_secret, redirect_uri=redirect_uri, scope=scope))
 
                 sp.pause_playback()
-                # play_response("The audio is now paused")
+                play_response("The audio is now paused")
                 print("the speaker would say: the audio is now paused")
                 self.counter = 0
                 self.emergency_counter = 0
@@ -778,7 +774,7 @@ class Pet:
 
             elif(response_text == 'irrelevant'):
 
-                #play_response("I am sorry could you repeat what you just said?")
+                play_response("I am sorry could you repeat what you just said?")
                 print("I am sorry could you repeat what you just said?")
                 self.counter = 0
                 self.emergency_counter = 0
@@ -789,7 +785,7 @@ class Pet:
 
             elif(response_text == "Bye Bye!"):
                 # End the session
-                #play_response(response_text)
+                play_response(response_text)
                 print("the speaker would say: ", response_text)
                 self.counter = 0
                 self. emergency_counter = 0
@@ -799,7 +795,7 @@ class Pet:
                 #self.petState = 1
     #-------------------------------------------------------------------------------------------------------------------------------------
             else:
-                # play_response(response_text)
+                play_response(response_text)
                 print("the speaker would say: ", response_text)
                 self.counter = 0
                 self.emergency_counter = 0
@@ -826,7 +822,7 @@ class Pet:
 
 
         if(number_of_track > 1 and self.seekattention_counter == 2):
-            #play_response("Everyday is a good day to listen to music, can I play a song based on your playing history?")
+            play_response("Everyday is a good day to listen to music, can I play a song based on your playing history?")
             print("Everyday is a good day to listen to music, can I play a song based on your playing history?")
             record_audio()
 
@@ -851,21 +847,21 @@ class Pet:
                         self.petState = 1
                 except FileNotFoundError:
                     print("The file does not exist.")
-                    #play_response("The file does not exist")
+                    play_response("The file does not exist")
                     self.seekattention_counter = self.seekattention_counter + 1
                     self.counter = 0
                     self.petState = 1
                     pass
                 except IOError:
                     print("An error occurred while reading the file.")
-                    #play_response("An error occurred while reading the file")
+                    play_response("An error occurred while reading the file")
                     self.seekattention_counter = self.seekattention_counter + 1
                     self.counter = 0
                     self.petState = 1
                     pass
             
             elif("no" in text or "stop" in text):
-                #play_response("Okay let me know if you need anything else")
+                play_response("Okay let me know if you need anything else")
                 print("Okay let me know if you need anything else")
                 self.seekattention_counter = self.seekattention_counter + 1
                 self.counter = 0
@@ -889,7 +885,7 @@ class Pet:
 
 
         elif(self.trackcounter == 0 and self.seekattention_counter % 2 == 0):
-            #play_response("Let me know your taste of music! I can search a music and play it for you. Try this by just saying play me a music!")
+            play_response("Let me know your taste of music! I can search a music and play it for you. Try this by just saying play me a music!")
             print("Let me know your taste of music! I can search a music and play it for you. Try this by just saying play me a music!")
             
             
@@ -987,7 +983,7 @@ class Pet:
         #-------------------------------------------------------------------------------------------------------------------------------------
         
         else:
-            #play_response("Hello, where are you?")
+            play_response("Hello, where are you?")
             print("Hello where are you?")
             self.seekattention_counter = self.seekattention_counter + 1
             self.counter = 0
@@ -1028,10 +1024,29 @@ class Pet:
 
 
 def __main__():
+   
+    pet = Pet()
 
-    #pet = Pet()
-    # pet.run()
-    play_response("Hi my name is Nova")
+    # app = Flask(__name__)
+    # def run_flask_app():
+    #    time.sleep(1)
+    #    app.run(host='0.0.0.0', port=5000, debug=False)
+    # @app.route('/data', methods=['POST'])
+    # def receive_data():
+    #     print("check")
+    #     data = request.json
+    #     name = data.get('name')
+    #     print('Received data:', data)
+    #     pet.username = data.get('name')
+    #     pet.emailAddress = data.get('email')
+    #     pet.location = data.get('location')
+    #     pet.animalType = data.get('animal')
+    #     pet.spUsername = data.get('spotify username')
+    #     pet.spPassword = data.get('spotify password')
+    #     pet.contactNumber = data.get('contact')
+    # flask_thread = threading.Thread(target=run_flask_app)
+    # flask_thread.start()
+    pet.run()
 
 __main__()
 

@@ -11,6 +11,8 @@ import speech_recognition as sr
 import pyttsx3
 import sys
 import pydub
+import time
+import threading
 import simpleaudio as sa
 from ibm_watson import TextToSpeechV1
 from ibm_watson import SpeechToTextV1
@@ -57,7 +59,7 @@ def record_audio():
     chunk = 1024
     filename = 'audio.wav'
     duration = 5
-    dev_index = 1
+    dev_index = 0
     # Initialize PyAudio
     audio_interface = pyaudio.PyAudio()
     print("Device count:")
@@ -99,9 +101,12 @@ def play_response(response_text):
     output_file = "output.wav"
     with open(output_file, 'wb') as audio_file:
         audio_file.write(response_speech.content)
-
+    time.sleep(0.5)
+    
     audio = AudioSegment.from_wav("output.wav")
     play(audio)
+   
+    
 
 
 
@@ -166,6 +171,7 @@ def get_weather_data():
         print("Error:", response["message"])
 
 def get_display_weather_data():
+    print("getting display weather data")
     BASE_URL = "http://api.openweathermap.org/data/2.5/weather?"
     API_KEY = '417af52d6a054b1434bb65cbfd0f2ae2'
     CITY = 'London'
@@ -199,9 +205,12 @@ def get_display_weather_data():
         if description == "clear sky":
            return "sun"
         
-        elif description in ["few clouds", "scattered clouds", "broken clouds", "overcast clouds"]:
+        elif description in ["few clouds", "scattered clouds", "broken clouds"]:
             return "suncloud"
 
+        elif description == "overcast clouds":
+            return "cloud"
+        
         elif description in ["mist", "fog", "haze", "smoke"]:
             return "thunder"
 
