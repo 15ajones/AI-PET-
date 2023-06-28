@@ -31,8 +31,7 @@ from ibm_cloud_sdk_core.authenticators import IAMAuthenticator
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 from spotipy.oauth2 import SpotifyClientCredentials
-from pydub import AudioSegment
-from pydub.playback import play
+
 from watson_assistant_functions import spotify_track_find_and_play
 from watson_assistant_functions import get_weather_data
 from watson_assistant_functions import get_display_weather_data
@@ -40,6 +39,9 @@ from watson_assistant_functions import play_response
 from watson_assistant_functions import spotify_podcast_find
 from watson_assistant_functions import record_audio
 from watson_assistant_functions import spotify_track_find_and_play_v2
+from watson_assistant_functions import play_podcast
+from watson_assistant_functions import search_and_play_song
+from watson_assistant_functions import play_random_song
 from calendarFile import Event, Day, CalendarClass
 from smsapiFile import sendSMS
 from emailFile import list_emails, getService, getNewEmails
@@ -318,12 +320,15 @@ class Pet:
             # 4. update happiness level (based on time since last interaction) y
             # 5. based on happiness level maybe switch to the seek attention state y
         time.sleep(1)
+        print(self.userName)
         if(time.time()-self.unhappinessTimer > 15):#this is the number to set how often it gets less happy
             print("becoming less happy")
             self.decrease_happiness_level(0.2)
             self.unhappinessTimer = time.time()
             randomNum = random.random()
             print("randomNum: ", randomNum)
+            print(self.userName)
+            print(self.contactNumber)
             if randomNum < (self.initiateProb(self.happinessLevel, self.animalType)):
                 self.petState = 3
             #if self.happinessLevel < 1.0:
@@ -359,10 +364,12 @@ class Pet:
         #translate the audio file into text
         #save text in self.lastAudioInput
         #save this audio to a file called 'audio.wav'
-        if(self.userName == ""):
-            play_response("Please fill in your details on the NoVa app")
-            self.petState = 0
-        else:
+        #print("CHECKPOINT ALEERA")
+        #if(self.userName == ""):
+            #print("Please submit your details through the app") #through speaker
+         #   play_response("Please submit your details through the app.")
+          #  self.petState = 0
+        #else:
             print("in listen state")
             # Set the sample rate, channels, and chunk size
             sample_rate = 44100
@@ -382,7 +389,7 @@ class Pet:
                 stream = audio_interface.open(format = pyaudio.paInt16, rate=sample_rate, channels = chans, input_device_index = 0,input = True,frames_per_buffer=chunk)
             except:
                 stream = audio_interface.open(format = pyaudio.paInt16, rate=sample_rate, channels = chans, input_device_index = 1,input = True,frames_per_buffer=chunk)
-        
+            
             # Start recording
             print("Recording started...")
             frames = []
@@ -628,7 +635,7 @@ class Pet:
         
             if(response_text == "waiting for reply"):
                 self.counter = self.counter + 1
-                if(self.counter > 10): #condition to move on to the seekattention state
+                if(self.counter > 3): #condition to move on to the seekattention state
                     self.petState = 3
                 else:
                     self.petState = 1
@@ -636,105 +643,115 @@ class Pet:
     #-------------------------------------------------------------------------------------------------------------------------------------
     #News_Podcast
 
-            elif(response_text == 'A News Podcast will be played soon'):
+            elif(response_text == 'News Podcast will be played soon'):
                 
                 play_response(response_text)
                 print("the speaker would say: ", response_text)
-                spotify_podcast_find('The News Agent', 'Lord, Ladies, and Boris Johnson honour')
+                #spotify_podcast_find('The News Agent', 'Lord, Ladies, and Boris Johnson honour')
+                play_podcast(r"/home/pi/podcasts/News_podcast.wav")
                 self.petState = 1
 
     #-------------------------------------------------------------------------------------------------------------------------------------
     #Comedy_Podcast
 
-            elif(response_text == 'A Comedy Podcast will be played soon'):
+            elif(response_text == 'Comedy Podcast will be played soon'):
                 
                 play_response(response_text)
                 print("the speaker would say: ", response_text)
-                spotify_podcast_find('Please Tell Me A Story', 'Omid: "A Fine Piece Of Ass')
+                #spotify_podcast_find('Please Tell Me A Story', 'Omid: "A Fine Piece Of Ass')
+                play_podcast(r"/home/pi/podcasts/Comedy_podcast.wav")
                 self.petState = 1
 
     #-------------------------------------------------------------------------------------------------------------------------------------
     #Sports_Podcast_Tennis
 
-            elif(response_text == 'A Tennis Podcast will be played soon'):
+            elif(response_text == 'Tennis Podcast will be played soon'):
                 
                 play_response(response_text)
                 print("the speaker would say: ", response_text)
-                spotify_podcast_find('The Tennis Podcast', 'Roland Garros Day 14 - lga in a classic; Djokovic-Ruud preview')
+                #spotify_podcast_find('The Tennis Podcast', 'Roland Garros Day 14 - lga in a classic; Djokovic-Ruud preview')
+                play_podcast(r"/home/pi/podcasts/Tennis_podcast.wav")
                 self.petState = 1
 
     #-------------------------------------------------------------------------------------------------------------------------------------
     #Sports_Podcast_Cricket
 
-            elif(response_text == 'A Cricket Podcast will be played soon'):
+            elif(response_text == 'Cricket Podcast will be played soon'):
                 print("the speaker should say: ", response_text)
                 play_response(response_text)
-                spotify_podcast_find('The Vaughany and Tuffers Cricket Club', 'Reflecting on an incredible year with Sam Curran')
+                #spotify_podcast_find('The Vaughany and Tuffers Cricket Club', 'Reflecting on an incredible year with Sam Curran')
+                play_podcast(r"/home/pi/podcasts/Cricket_podcast.wav")
                 self.petState = 1
 
 
     #-------------------------------------------------------------------------------------------------------------------------------------
     #Sports_Podcast_Football
 
-            elif(response_text == 'A Football podcast will be played soon'):
+            elif(response_text == 'Football will be played soon'):
             
                 play_response(response_text)
                 print("the speaker would say: ", response_text)
-                spotify_podcast_find('Football Daily', 'The Day After Man Citys Treble Win')
+                #spotify_podcast_find('Football Daily', 'The Day After Man Citys Treble Win')
+                play_podcast(r"/home/pi/podcasts/Football_podcast.wav")
                 self.petState = 1
 
     #-------------------------------------------------------------------------------------------------------------------------------------
     #Sports_Podcast_Golf
 
-            elif(response_text == 'A Golf Podcast will be played soon'):
+            elif(response_text == 'Golf Podcast will be played soon'):
                 
                 play_response(response_text)
                 print("the speaker would say: ", response_text)
-                spotify_podcast_find('Beefs Golf Club', 'The First Tee')
+                #spotify_podcast_find('Beefs Golf Club', 'The First Tee')
+                play_podcast(r"/home/pi/podcasts/Golf_podcast.wav")
                 self.petState = 1
 
 
     #-------------------------------------------------------------------------------------------------------------------------------------
     #Music_Podcast_Pop
 
-            elif(response_text == 'A Pop Podcast will be played soon'):
+            elif(response_text == 'Pop Podcast will be played soon'):
                 
                 play_response(response_text)
                 print("the speaker would say: ", response_text)
-                spotify_podcast_find('Switched on Pop', 'Listening to Draft Punk: Random Access Memories')
+                #spotify_podcast_find('Switched on Pop', 'Listening to Draft Punk: Random Access Memories')
+                play_podcast(r"/home/pi/podcasts/Pop_music_podcast.wav")
                 self.petState = 1
 
 
     #-------------------------------------------------------------------------------------------------------------------------------------
     #Music_Podcast_Classic
 
-            elif(response_text == 'A Classic Podcast will be played soon'):
+            elif(response_text == 'Classic Podcast will be played soon'):
                 
                 play_response(response_text)
                 print("the speaker would say: ", response_text)
-                spotify_podcast_find('That Classic Podcast', 'So long, farewell, auf wiedersehan, goodbye!')
+                #spotify_podcast_find('That Classic Podcast', 'So long, farewell, auf wiedersehan, goodbye!')
+                play_podcast(r"/home/pi/podcasts/Classic_music_podcast.wav")
                 self.petState = 1
 
 
     #-------------------------------------------------------------------------------------------------------------------------------------
     #Music_Podcast_Jazz
 
-            elif(response_text == 'A Jazz Podcast will be played soon'):
+            elif(response_text == 'Jazz Podcast will be played soon'):
                 
                 play_response(response_text)
                 print("the speaker would say: ", response_text)
-                spotify_podcast_find('The Jazz Session', 'The Jazz Session #617: Bill Lowe')
+                #spotify_podcast_find('The Jazz Session', 'The Jazz Session #617: Bill Lowe')
+                play_podcast(r"/home/pi/podcasts/Jazz_music_podcast.wav")
                 self.petState = 1
 
 
     #-------------------------------------------------------------------------------------------------------------------------------------
     #Music_Podcast_Rock
 
-            elif(response_text == 'A Rock Podcast will be played soon'):
+            elif(response_text == 'Rock Podcast will be played soon'):
                 
                 play_response(response_text)
                 print("the speaker would say: ", response_text)
-                spotify_podcast_find('Rockonteurs with Gary Kemp and Guy Pratt', 'S4E27: Jerry Shirley')
+                #spotify_podcast_find('Rockonteurs with Gary Kemp and Guy Pratt', 'S4E27: Jerry Shirley')
+                play_podcast(r"/home/pi/podcasts/Rock_music_podcast.wav")
                 self.petState = 1
 
     #-------------------------------------------------------------------------------------------------------------------------------------
@@ -751,11 +768,20 @@ class Pet:
     #-------------------------------------------------------------------------------------------------------------------------------------
     #Playing_track
 
-            elif(response_text == 'Sure, can you kindly tell me the title of the song and the name of the artist?'):
+            elif(response_text == 'Sure, can you kindly teach me the title of the music and the name of the artist?'):
 
                 play_response(response_text)
                 print("the speaker would say: ", response_text)
-                spotify_track_find_and_play()
+                #spotify_track_find_and_play()
+                record_audio()
+                try:
+                    with open('audio.wav', 'rb') as audio:
+                        response = speech_to_text.recognize(audio=audio, content_type='audio/wav')
+                        track_name = response.result['results'][0]['alternatives'][0]['transcript']
+                        search_and_play_song(track_name)
+                        
+                except :
+                    print("Speech recognition could not understand audio.")
                 self.counter = 0
                 self.emergency_counter = 0
                 self.petState = 1
@@ -836,7 +862,7 @@ class Pet:
             pass
 
 
-        if(number_of_track > 1 and self.seekattention_counter == 2):
+        if(self.seekattention_counter == 2):
             play_response("Everyday is a good day to listen to music, can I play a song based on your playing history?")
             print("Everyday is a good day to listen to music, can I play a song based on your playing history?")
             record_audio()
@@ -851,29 +877,37 @@ class Pet:
                 text = "pass"
             
             if("yes" in text or "sure" in text or "go" in text):
-                try:
-                    with open(file_name, "r") as file:
-                        lines = file.readlines()
-                        random_track = random.choice(lines).strip()
-                        spotify_track_find_and_play_v2(random_track)
-                        self.seekattention_counter = self.seekattention_counter + 1
-                        self.counter = 0
-                        self.trackcounter = number_of_track
-                        self.petState = 1
-                except FileNotFoundError:
-                    print("The file does not exist.")
-                    play_response("The file does not exist")
-                    self.seekattention_counter = self.seekattention_counter + 1
-                    self.counter = 0
-                    self.petState = 1
-                    pass
-                except IOError:
-                    print("An error occurred while reading the file.")
-                    play_response("An error occurred while reading the file")
-                    self.seekattention_counter = self.seekattention_counter + 1
-                    self.counter = 0
-                    self.petState = 1
-                    pass
+
+                play_random_song(r"/home/pi/songs")
+                self.seekattention_counter = self.seekattention_counter + 1
+                self.counter = 0
+                self.petState = 1
+                #try:
+                #    with open(file_name, "r") as file:
+                #        lines = file.readlines()
+                #        random_track = random.choice(lines).strip()
+                #        spotify_track_find_and_play_v2(random_track)
+
+                #       play_random_song("/home/pi/songs")
+
+                #        self.seekattention_counter = self.seekattention_counter + 1
+                #        self.counter = 0
+                #        self.trackcounter = number_of_track
+                #       self.petState = 1
+                #except FileNotFoundError:
+                #    print("The file does not exist.")
+                #    play_response("The file does not exist")
+                #    self.seekattention_counter = self.seekattention_counter + 1
+                #    self.counter = 0
+                #    self.petState = 1
+                #    pass
+                #except IOError:
+                #    print("An error occurred while reading the file.")
+                #    play_response("An error occurred while reading the file")
+                #    self.seekattention_counter = self.seekattention_counter + 1
+                #    self.counter = 0
+                #    self.petState = 1
+                #    pass
             
             elif("no" in text or "stop" in text):
                 play_response("Okay let me know if you need anything else")
@@ -891,7 +925,7 @@ class Pet:
             
 
             else:
-                play_response("I could not understand your speech. Let me know if you want me to play some music!")
+                play_response("I could not understand your speech. Let me know if you want me to play a music!")
                 self.seekattention_counter = self.seekattention_counter + 1
                 self.counter = 0
                 #self.emergency_counter = self.emergency_counter + 1
@@ -899,21 +933,21 @@ class Pet:
 
 
 
-        elif(self.trackcounter == 0 and self.seekattention_counter % 2 == 0):
-            play_response("Let me know your taste of music! I can search a song and play it for you. Try this by just saying play me music!")
-            print("Let me know your taste of music! I can search a music and play it for you. Try this by just saying play me a music!")
+        #elif(self.trackcounter == 0 and self.seekattention_counter % 2 == 0):
+        #    play_response("Let me know your taste of music! I can search a music and play it for you. Try this by just saying play me a music!")
+        #    print("Let me know your taste of music! I can search a music and play it for you. Try this by just saying play me a music!")
             
             
-            self.seekattention_counter = self.seekattention_counter + 1
-            self.counter = 0
-            self.petState = 1
+        #    self.seekattention_counter = self.seekattention_counter + 1
+        #    self.counter = 0
+        #    self.petState = 1
 
         elif self.seekattention_counter == 3:
             randomNum = random.random()
             if randomNum < 0.5:
                 #meditation task
-                play_response("Meditation is great for your mental health! If you feel nervous I can introduce you to some meditation programs. Do you want me to?")
-                print("Meditation is great for your mental heath. If you feel nervous I can introduce some medication program")
+                play_response("Medication is a good remedy for a mental disorder. If you feel nervous I can introduce some medication program. Do you want me to?")
+                print("Medication is a good remedy for a mental disorder. If you feel nervous I can introduce some medication program")
                 
                 record_audio()
                 try:
@@ -926,7 +960,8 @@ class Pet:
                     text = "pass"
 
                 if("yes" in text or "sure" in text or "go" in text):
-                    spotify_podcast_find("Meditation self", "yoga music, relaxing music, calming music")
+                    #spotify_podcast_find("Meditation self", "yoga music, relaxing music, calming music")
+                    play_podcast(r"/home/pi/podcasts/Meditation.wav")
                     self.seekattention_counter = self.seekattention_counter + 1
                     self.counter = 0
                     self.petState = 1
@@ -944,14 +979,14 @@ class Pet:
                     self.petState = 1
 
                 else:
-                    play_response("I could not understand your speech. If you want me to play a meditation podcast, just say it to me!")
+                    play_response("I could not understand your speech. If you want me to play a medication podcast, just say it to me!")
                     self.seekattention_counter = self.seekattention_counter + 1
                     self.counter = 0
                     self.petState = 1
                 #pass
             else:
                 #exercise task
-                play_response("Did you know that regular exercise can decrease the chance of a heart attack by 80 percent? If you need any help to start an exercise, I can play a tutorial for you. Do you want me to play it?")
+                play_response("Did you know that regular exercise can decrease the heart attack rate by 80 percent? If you need any help to start an exercise, I can play a tutorial for you. Do you want me to play it?")
                 print("Did you know that regular exercise can decrease the heart attack rate by 80 percent? If you need any help to start an exercise, I can play a tutorial for you. Do you want me to play it?")
                 record_audio()
                 try:
@@ -965,6 +1000,7 @@ class Pet:
 
                 if("yes" in text or "sure" in text or "go" in text):
                     #spotify_podcast_find("Meditation self", "yoga music, relaxing music, calming music")
+                    play_podcast(r"/home/pi/podcasts/exercise_tutorial.wav")
                     self.seekattention_counter = self.seekattention_counter + 1
                     self.counter = 0
                     self.petState = 1
@@ -991,8 +1027,8 @@ class Pet:
         #-------------------------------------------------------------------------------------------------------------------------------------
         #Emergency state
         elif(self.emergency_counter > 4):
-            play_response("Are you okay? Since you have not responded, I am assuming you are in danger. I am sending a message to your emergency contact.")
-            sendSMS(self.userName, self.contactNumber)
+            print("Are you okay? If don't respond to this I am assuming you are in danger and I am asking for some help to your Whatsapp friend")
+            sendSMS()#sendSMS(self.username, self.contactNumber)
             sys.exit()
         
         #-------------------------------------------------------------------------------------------------------------------------------------
@@ -1006,12 +1042,22 @@ class Pet:
 
 
     def alarmState(self):
+        print("sounding alarm")
+        # pygame.mixer.init()
+
+        # # Load the audio file
+        # audio_file = "digital_alarm.wav"
+        # pygame.mixer.music.load(audio_file)
+
+        # # Play the audio file
+        # pygame.mixer.music.play()
+
+        # # while audio playing, wait
+        # while pygame.mixer.music.get_busy():
+        #  pygame.time.Clock().tick(10)
+
         
-        time.sleep(2)
-        # audio = AudioSegment.from_wav("digital-alarm.wav")
-        # play(audio)
-        self.petState == 0
-    
+        # pygame.mixer.quit()
 
     def run(self):
         while(True):
@@ -1036,21 +1082,21 @@ def __main__():
     def run_flask_app():
         time.sleep(1)
         app.run(host='0.0.0.0', port=5000, debug=False)
+    
     @app.route('/data', methods=['POST'])
     def receive_data():
-         print("check")
-         data = request.json
-         name = data.get('name')
-         print('Received data:', data)
-         pet.username = data.get('name')
-         pet.emailAddress = data.get('email')
-         pet.location = data.get('location')
-         pet.animalType = data.get('animal')
-         pet.spUsername = data.get('spotify username')
-         pet.spPassword = data.get('spotify password')
-         pet.contactNumber = str(data.get('contact'))
-         if(pet.contactNumber.startsWith('+')):
-             pet.contactNumber = pet.contactNumber[1:]
+            print("check")
+            data = request.json
+            name = data.get('name')
+            print('Received data:', data)
+            pet.userName = data.get('name')
+            pet.emailAddress = data.get('email')
+            pet.location = data.get('location')
+            pet.animalType = data.get('animal')
+            pet.spUsername = data.get('spotify username')
+            pet.spPassword = data.get('spotify password')
+            pet.contactNumber = data.get('contact')   
+            return "Data received"
     flask_thread = threading.Thread(target=run_flask_app)
     flask_thread.start()
     pet.run()

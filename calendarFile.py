@@ -71,14 +71,14 @@ class Day:
         print("printing events in day")
         eventsPrint = []
         for event in self.events:
-            eventsPrint.append([event.name, event.startTime, event.endTime])
+            eventsPrint.append([event.name, event.startTime])
         print(eventsPrint)
     
     def checkEvent(self, time):
         print("events in day in calendar: ")
         self.printEvents()
         for event in self.events:
-            if event.getStartTime() == time:
+            if int(event.getStartTime()) == int(time):
                 return event.getName()
         return 0
     
@@ -102,9 +102,10 @@ class CalendarClass:
         self.currentDayIndex = (self.currentDayIndex + 1) % 7
 
     def possibleChangeDay(self, newDayIndex):
-        if newDayIndex != self.currentDayIndex:
-            self.days[self.currentDayIndex].events = []
-            self.currentDayIndex = newDayIndex
+        # if newDayIndex != self.currentDayIndex:
+        #     self.days[self.currentDayIndex].events = []
+        #     self.currentDayIndex = newDayIndex
+        pass
 
    
 
@@ -156,9 +157,12 @@ class CalendarClass:
             number += 12
         number *= 100
         print("time number is: ", number)
+        print("returning the number: ", self.convertDateStringToInt(str(number)))
         return self.convertDateStringToInt(str(number))
     
     def convertDateStringToInt(self, stringTime): #"0145" -> 105
+        while len(stringTime) < 4:
+            stringTime = "0"+stringTime
         hours = int(stringTime[0:2])
         minutes = int(stringTime[2:])
         return hours*60 + minutes
@@ -182,7 +186,7 @@ class CalendarClass:
         return hours + minutes
     
     def checkAnnouncements(self, stringTime): #time is given as "1450" for example
-        stringTime = self.convertDateStringToInt(stringTime)
+        stringTime = int(self.convertDateStringToInt(stringTime))
         day = self.days[self.currentDayIndex]
         for event in day.events:
             if event.name == "alarm" and (not event.announced) and stringTime >= event.startTime:
@@ -221,7 +225,7 @@ class CalendarClass:
             time = arr[-2]
             eventName = " ".join(arr[1:len(arr)-2])
             day = self.days[self.dayIndexer[dayOfWeek]]
-            newEvent = Event(eventName, time, time, announced)
+            newEvent = Event(eventName, int(time), int(time), announced)
             day.addEvent(newEvent)
             
 
@@ -235,4 +239,7 @@ class CalendarClass:
 def test():
     calendar = CalendarClass()
     calendar.readFromFile()
-    calendar.writeToFile()
+    calendar.days[0].printEvents()
+    print("checking now")
+    print(calendar.check("monday", "2 p.m"))
+    print("end")

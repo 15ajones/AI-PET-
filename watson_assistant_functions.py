@@ -14,13 +14,15 @@ import pydub
 import time
 import threading
 import simpleaudio as sa
+import random
+import os
+import difflib
 from ibm_watson import TextToSpeechV1
 from ibm_watson import SpeechToTextV1
 from ibm_cloud_sdk_core.authenticators import IAMAuthenticator
 import json
 from ibm_watson import SpeechToTextV1
 from ibm_cloud_sdk_core.authenticators import IAMAuthenticator
-import pyaudio
 import wave
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
@@ -67,8 +69,10 @@ def record_audio():
     print("max input channels:")
     print(audio_interface.get_default_input_device_info()['maxInputChannels'])
     # Open the microphone stream
-    stream = audio_interface.open(format = pyaudio.paInt16, rate=sample_rate, channels = chans, input_device_index = dev_index,input = True,frames_per_buffer=chunk)
-    
+    try:
+        stream = audio_interface.open(format = pyaudio.paInt16, rate=sample_rate, channels = chans, input_device_index = 0,input = True,frames_per_buffer=chunk)
+    except:
+        stream = audio_interface.open(format = pyaudio.paInt16, rate=sample_rate, channels = chans, input_device_index = 1,input = True,frames_per_buffer=chunk)
     # Start recording
     print("Recording started...")
     frames = []
@@ -91,7 +95,6 @@ def record_audio():
     wf.setframerate(sample_rate)
 
     # Write the audio frames to the file
-    wf.writeframes(b''.join(frames))
     wf.close()
 
 def play_response(response_text):
@@ -476,3 +479,127 @@ def update_tracklist(new_text):
 #random_line = extract_random_line(file_name)
 #if random_line:
 #    print("Random line:", random_line)
+
+def play_podcast(file_path):
+
+    wave_obj = sa.WaveObject.from_wave_file(file_path)
+    play_obj = wave_obj.play()
+
+    stop_playing = False
+
+    while not stop_playing:
+
+        record_audio()
+        try:
+            with open('audio.wav', 'rb') as audio:
+                response = speech_to_text.recognize(audio=audio, content_type='audio/wav')
+                text = response.result['results'][0]['alternatives'][0]['transcript']
+                print(text)
+                if("stop" in text or "pause" in text or "terminate" in text or "yes" in text):
+                    stop_playing = True
+                    play_obj.stop()
+                    #play_response("The audio is now paused")
+                    print("The audio is now paused")
+                
+                else:
+                    #play_response("I cannot assist you properly while playing an audio. Can I pause the audio first?")
+                    print("I cannot assist you properly while playing an audio. Can I pause the audio first?")
+
+        except :
+            print("No sound detected")
+            pass
+
+def search_and_play_song(song_name):
+    search_directory = r"/home/pi/songs"  # Update this with the desired directory path
+
+    # Search for WAV files in the specified directory
+    wav_files = []
+    for root, dirs, files in os.walk(search_directory):
+        for file in files:
+            if file.endswith(".wav"):
+                wav_files.append(file)
+
+    # Find the closest matching song
+    closest_match = difflib.get_close_matches(song_name, wav_files, n=1, cutoff=0.5)
+
+    if closest_match:
+        # Get the selected song file
+        song_file = os.path.join(search_directory, closest_match[0])
+        #print(song_file)
+
+        # Play the selected song
+        wave_obj = sa.WaveObject.from_wave_file(song_file)
+        play_obj = wave_obj.play()
+
+        stop_playing = False
+
+        while not stop_playing:
+
+            record_audio()
+            try:
+                with open('audio.wav', 'rb') as audio:
+                    response = speech_to_text.recognize(audio=audio, content_type='audio/wav')
+                    text = response.result['results'][0]['alternatives'][0]['transcript']
+                    print(text)
+                    if("stop" in text or "pause" in text or "terminate" in text or "yes" in text):
+                        stop_playing = True
+                        play_obj.stop()
+                        #play_response("The audio is now paused")
+                        print("The audio is now paused")
+                    
+                    else:
+                        #play_response("I cannot assist you properly while playing an audio. Can I pause the audio first?")
+                        print("I cannot assist you properly while playing an audio. Can I pause the audio first?")
+
+            except :
+                print("No sound detected")
+                pass
+
+        # Wait for the song to finish playing
+        #play_obj.wait_done()
+    else:
+        print("Song not found!")
+
+
+def play_random_song(directory):
+    # Search for WAV files in the specified directory
+    wav_files = []
+    for root, dirs, files in os.walk(directory):
+        for file in files:
+            if file.endswith(".wav"):
+                wav_files.append(os.path.join(root, file))
+
+    if wav_files:
+        # Select a random WAV file
+        random_song = random.choice(wav_files)
+        print(random_song)
+
+        # Play the selected song
+        wave_obj = sa.WaveObject.from_wave_file(random_song)
+        play_obj = wave_obj.play()
+
+        stop_playing = False
+
+        while not stop_playing:
+
+            record_audio()
+            try:
+                with open('audio.wav', 'rb') as audio:
+                    response = speech_to_text.recognize(audio=audio, content_type='audio/wav')
+                    text = response.result['results'][0]['alternatives'][0]['transcript']
+                    print(text)
+                    if("stop" in text or "pause" in text or "terminate" in text or "yes" in text):
+                        stop_playing = True
+                        play_obj.stop()
+                        #play_response("The audio is now paused")
+                        print("The audio is now paused")
+                    
+                    else:
+                        #play_response("I cannot assist you properly while playing an audio. Can I pause the audio first?")
+                        print("I cannot assist you properly while playing an audio. Can I pause the audio first?")
+
+            except :
+                print("No sound detected")
+                pass
+    else:
+        print("No WAV files found in the directory!")

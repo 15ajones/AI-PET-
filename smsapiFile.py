@@ -2,13 +2,13 @@ import http.client
 """
  * Send sms API reference: https://www.infobip.com/docs/api#channels/sms/send-sms-message
 """
-def sendSMS():
+def sendSMS(userName, contactNumber):
     BASE_URL = "4mydg6.api.infobip.com"
     API_KEY = "App 9138726fb0818699953c54fb6021ae72-fd46a2e1-feeb-4c5d-a50f-77afdff22fe2"
 
     SENDER = "AI Pet Nova"
-    RECIPIENT = "447879333740"
-    USERNAME = "Henry"
+    RECIPIENT = contactNumber#"447879333740"
+    USERNAME = userName#"Henry"
     MESSAGE_TEXT = "Hello, please check on {}. I haven't heard from them in a while".format(USERNAME)
 
     conn = http.client.HTTPSConnection(BASE_URL)
