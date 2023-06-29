@@ -31,7 +31,8 @@ from ibm_cloud_sdk_core.authenticators import IAMAuthenticator
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 from spotipy.oauth2 import SpotifyClientCredentials
-
+from pydub import AudioSegment
+from pydub.playback import play
 from watson_assistant_functions import spotify_track_find_and_play
 from watson_assistant_functions import get_weather_data
 from watson_assistant_functions import get_display_weather_data
@@ -48,7 +49,6 @@ from emailFile import list_emails, getService, getNewEmails
 #from weather import Weather
 GPIO.setmode(GPIO.BCM)
 GPIO.setup(18, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-from flask import Flask, request
 
 import board
 import busio
@@ -141,12 +141,12 @@ class Pet:
         self.calendar = CalendarClass(currentDayIndex=0)#change this to be the correct day at some point
         button_t = threading.Thread(target=self.button_thread)
         button_t.start()
-
+        self.alarmSound = ""
         notification_t = threading.Thread(target=self.notification_thread)
         notification_t.start()
 
-        # display_thread_t = threading.Thread(target=self.display_thread)
-        # display_thread_t.start()
+        display_thread_t = threading.Thread(target=self.display_thread)
+        display_thread_t.start()
 
 
         
@@ -204,6 +204,9 @@ class Pet:
         white = (255, 255, 255)
         pygame.init()
         gameDisplay = pygame.display.set_mode((display_width, display_height))
+        
+        def ImgFunction(x, y):
+            gameDisplay.blit(Img, (x, y))
         while True:
             time.sleep(1)
             if displayOn:
@@ -221,33 +224,33 @@ class Pet:
                     else:
                         image = self.displayWeather + ".bmp"
                     #display weather image
+                Img = pygame.image.load(image)
+                Img = pygame.transform.scale(Img, (display_width, display_height))
                 animalNotWeather+=1
                 if animalNotWeather > 10:
                     animalNotWeather = 0
                 
-                clock = pygame.time.Clock()
-                crashed = False
-
-                Img = pygame.image.load(image)
-                Img = pygame.transform.scale(Img, (display_width, display_height))
-
-                def ImgFunction(x, y):
-                    gameDisplay.blit(Img, (x, y))
+                
                 
                 x = (display_width - Img.get_width()) /2
                 y = (display_height - Img.get_height())/2
-                
+            
 
                 gameDisplay.fill(white)
                 ImgFunction(x, y)
 
                 pygame.display.update()
+                
+            
             else:
                 if self.petState == 0:
+                    time.sleep(2)
+                    print("11")
                     displayOn = True
                     pygame.init()
+                    print("22")
                     gameDisplay = pygame.display.set_mode((display_width, display_height))
-
+                    print("33")
             
 
     def notification_thread(self):
@@ -275,9 +278,11 @@ class Pet:
                 
                 newAnnouncement = self.calendar.checkAnnouncements(dayTime)#change it to be the current time
                 if newAnnouncement == "alarm":
+                    self.alarmSound = "alarm"
                     self.petState = 4
                 elif newAnnouncement:
-                    self.eventsToAnnounce.append(newAnnouncement)
+                    self.alarmSound = newAnnouncement
+                    self.petState = 4
 
                 self.calendar.possibleChangeDay(dayIndex)
                 # getNewEmails(self.emailService, self.prevTime) #this prints
@@ -332,7 +337,8 @@ class Pet:
             print("randomNum: ", randomNum)
             print(self.userName)
             print(self.contactNumber)
-            if randomNum < (self.initiateProb(self.happinessLevel, self.animalType)):
+            # if randomNum < (self.initiateProb(self.happinessLevel, self.animalType)):
+            if randomNum < 1:
                 self.petState = 3
             #if self.happinessLevel < 1.0:
              #   if randomNum < 0.2:
@@ -775,14 +781,91 @@ class Pet:
 
                 play_response(response_text)
                 print("the speaker would say: ", response_text)
-                #spotify_track_find_and_play()
-                record_audio()
                 try:
                     with open('audio.wav', 'rb') as audio:
-                        response = speech_to_text.recognize(audio=audio, content_type='audio/wav')
-                        track_name = response.result['results'][0]['alternatives'][0]['transcript']
-                        search_and_play_song(track_name)
-                        
+                        track_name = self.getVoiceInput().lower()
+                        track_name = track_name.split(" ")
+                        print("array to check perfect in is this: ", track_name)
+                        if "perfect" in track_name in track_name:
+                            audio = AudioSegment.from_wav('songs/Perfect by Ed Sheeran.wav')
+                            play(audio)
+
+                        elif "shape" in track_name in track_name:
+                            audio = AudioSegment.from_wav('songs/Shape of you by Ed Sheeran.wav')
+                            play(audio)
+
+                        elif "blinding" in track_name in track_name:
+                            audio = AudioSegment.from_wav('songs/Blinding Lights by The Weeknd.wav')
+                            play(audio)
+
+                        elif "someone" in track_name in track_name:
+                            audio = AudioSegment.from_wav('songs/Someone you loved by Lewis Capaidi.wav')
+                            play(audio)
+
+                        elif "rockstar" in track_name in track_name:
+                            audio = AudioSegment.from_wav('songs/Rockstar by Post Malone.wav')
+                            play(audio)
+
+                        elif "dance" in track_name in track_name:
+                            audio = AudioSegment.from_wav('songs/One dance by drake.wav')
+                            play(audio)
+
+                        elif "closer" in track_name in track_name:
+                            audio = AudioSegment.from_wav('songs/Closer by The Chainsmokers.wav')
+                            play(audio)
+
+                        elif "say" in track_name in track_name:
+                            audio = AudioSegment.from_wav('songs/Say you won''t let go by James Arthur.wav')
+                            play(audio)
+
+                        elif "believer" in track_name in track_name:
+                            audio = AudioSegment.from_wav('songs/Believer by Imagine Dragons.wav')
+                            play(audio)
+
+                        elif "rings" in track_name in track_name:
+                            audio = AudioSegment.from_wav('songs/7 rigns by Ariana Grande.wav')
+                            play(audio)
+
+                        elif "bohemian" in track_name in track_name:
+                            audio = AudioSegment.from_wav('songs/Bohemian Rhapsody by Queen.wav')
+                            play(audio)
+
+                        elif "watermelon" in track_name in track_name:
+                            audio = AudioSegment.from_wav('songs/Watermelon sugar by Harry Styles.wav')
+                            play(audio)
+
+                        elif "photograph" in track_name in track_name:
+                            audio = AudioSegment.from_wav('songs/Photograph by Ed Sheeran.wav')
+                            play(audio)
+
+                        elif "sad" in track_name in track_name:
+                            audio = AudioSegment.from_wav('songs/SAD! by XXXTENTACION.wav')
+                            play(audio)
+
+                        elif "happier" in track_name in track_name:
+                            audio = AudioSegment.from_wav('songs/Happier by Marshmello, Bastille.wav')
+                            play(audio)
+                            
+                        elif "humble" in track_name in track_name:
+                            audio = AudioSegment.from_wav('songs/Humble by Kendrick Lamar.wav')
+                            play(audio)
+
+                        elif "havana" in track_name in track_name:
+                            audio = AudioSegment.from_wav('songs/Havana by Camila Cabello.wav')
+                            play(audio)
+
+                        elif "stay" in track_name in track_name:
+                            audio = AudioSegment.from_wav('songs/Stay by The Kid LAROI, Justin Bieber.wav')
+                            play(audio)
+
+                        elif "shallow" in track_name in track_name:
+                            audio = AudioSegment.from_wav('songs/Shallow by Lady Gaga, Bradley Cooper.wav')
+                            play(audio)
+
+                        elif "something" in track_name in track_name:
+                            audio = AudioSegment.from_wav('songs/Something.wav')
+                            play(audio)
+                
                 except :
                     print("Speech recognition could not understand audio.")
                 self.counter = 0
@@ -868,20 +951,14 @@ class Pet:
         if(self.seekattention_counter == 2):
             play_response("Everyday is a good day to listen to music, can I play a song based on your playing history?")
             print("Everyday is a good day to listen to music, can I play a song based on your playing history?")
-            record_audio()
+        
 
-            try:
-                with open('audio.wav', 'rb') as audio:
-                    response = speech_to_text.recognize(audio=audio, content_type='audio/wav')
-                    text = response.result['results'][0]['alternatives'][0]['transcript']
-                    #return text
-            except :
-                print("Speech recognition could not understand audio.")
-                text = "pass"
+            text = self.getVoiceInput().lower()
             
             if("yes" in text or "sure" in text or "go" in text):
-
-                play_random_song(r"/home/pi/songs")
+                audio = AudioSegment.from_wav('songs/Shallow by Lady Gaga, Bradley Cooper.wav')
+                play(audio)
+                
                 self.seekattention_counter = self.seekattention_counter + 1
                 self.counter = 0
                 self.petState = 1
@@ -949,18 +1026,10 @@ class Pet:
             randomNum = random.random()
             if randomNum < 0.5:
                 #meditation task
-                play_response("Medication is a good remedy for a mental disorder. If you feel nervous I can introduce some medication program. Do you want me to?")
-                print("Medication is a good remedy for a mental disorder. If you feel nervous I can introduce some medication program")
+                play_response("Meditation is a good remedy for a mental disorder. If you feel nervous I can introduce some meditation program. Do you want me to?")
+                print("Meditation is a good remedy for a mental disorder. If you feel nervous I can introduce some meditation program")
                 
-                record_audio()
-                try:
-                    with open('audio.wav', 'rb') as audio:
-                        response = speech_to_text.recognize(audio=audio, content_type='audio/wav')
-                        text = response.result['results'][0]['alternatives'][0]['transcript']
-                        #return text
-                except :
-                    print("Speech recognition could not understand audio.")
-                    text = "pass"
+                track_name = self.getVoiceInput().lower()
 
                 if("yes" in text or "sure" in text or "go" in text):
                     #spotify_podcast_find("Meditation self", "yoga music, relaxing music, calming music")
@@ -991,15 +1060,7 @@ class Pet:
                 #exercise task
                 play_response("Did you know that regular exercise can decrease the heart attack rate by 80 percent? If you need any help to start an exercise, I can play a tutorial for you. Do you want me to play it?")
                 print("Did you know that regular exercise can decrease the heart attack rate by 80 percent? If you need any help to start an exercise, I can play a tutorial for you. Do you want me to play it?")
-                record_audio()
-                try:
-                    with open('audio.wav', 'rb') as audio:
-                        response = speech_to_text.recognize(audio=audio, content_type='audio/wav')
-                        text = response.result['results'][0]['alternatives'][0]['transcript']
-                        #return text
-                except :
-                    print("Speech recognition could not understand audio.")
-                    text = "pass"
+                text = self.getVoiceInput()
 
                 if("yes" in text or "sure" in text or "go" in text):
                     #spotify_podcast_find("Meditation self", "yoga music, relaxing music, calming music")
@@ -1045,22 +1106,12 @@ class Pet:
 
 
     def alarmState(self):
-        print("sounding alarm")
-        # pygame.mixer.init()
+        print("in alarm state")
+        time.sleep(3)
+        play_response(self.alarmSound)
+        time.sleep(1)
+        self.petState = 0
 
-        # # Load the audio file
-        # audio_file = "digital_alarm.wav"
-        # pygame.mixer.music.load(audio_file)
-
-        # # Play the audio file
-        # pygame.mixer.music.play()
-
-        # # while audio playing, wait
-        # while pygame.mixer.music.get_busy():
-        #  pygame.time.Clock().tick(10)
-
-        
-        # pygame.mixer.quit()
 
     def run(self):
         while(True):
