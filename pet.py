@@ -15,8 +15,16 @@ import json
 from PIL import Image
 import pyttsx3
 import gtts
+import pydub
+import simpleaudio
+import sys
 from weather import Weather
+
 from threading import thread
+from ibm_watson import TextToSpeechV1
+from ibm_watson import SpeechToTextV1
+from ibm_cloud_sdk_core.authenticators import IAMAuthenticator
+
 #THINK ABOUT EMAILING OR SOMETHING, AS MOST OLD PEOPLE USE EMAIL
 
 class Pet:
@@ -110,6 +118,68 @@ class Pet:
                 self.petState = 3
 
 
+    def hearingState(self):
+
+        # Set up the Speech to Text service
+        apikey_speech_to_text = 'vIC0cr98ZS3tO7FxgceuzsjCrhDUjiMc2IbSEtSdEzjv'
+        url_speech_to_text = 'https://api.au-syd.speech-to-text.watson.cloud.ibm.com/instances/cbab904d-34fb-41dc-a0fd-40cca19ff9e6'
+        authenticator = IAMAuthenticator(apikey_speech_to_text)
+        speech_to_text = SpeechToTextV1(authenticator=authenticator)
+        speech_to_text.set_service_url(url_speech_to_text)
+
+
+        # Set up the Text to Speech service
+        apikey_text_to_speech = 'RL8bEBwfNsNhJ8uzZWGVWIWKZi_sIe2eptFqcGdytYXH'
+        url_text_to_speech = 'https://api.au-syd.text-to-speech.watson.cloud.ibm.com/instances/5da2b1e5-0bde-4a8c-bd7a-ebb249bb968b'
+        authenticator = IAMAuthenticator(apikey_text_to_speech)
+        text_to_speech = TextToSpeechV1(authenticator=authenticator)
+        text_to_speech.set_service_url(url_text_to_speech)
+
+        # Set up the recognizer and engine
+        recognizer = sr.Recognizer()
+        #engine = pyttsx3.init()
+        default_text = "Hi, I am listening"
+        output_file = "output.wav"
+
+        with sr.Microphone() as source:
+            #print("Listening...")
+            audio = recognizer.listen(source)
+
+
+        try:
+            text = recognizer.recognize_google(audio)
+            if text.lower() == "hey nova":
+                #print("Detected command:", text)
+                #engine.say("Hi, I am listening")
+                #engine.runAndWait()
+                #sys.exit()  # Terminate the program after speaking
+                # Perform text to speech conversion
+                response = text_to_speech.synthesize(default_text, accept='audio/wav', voice='en-US_AllisonV3Voice').get_result()
+
+                # Save the audio to a file
+                with open(output_file, 'wb') as audio_file:
+                    audio_file.write(response.content)
+
+                #print("Text to Speech conversion completed.")
+                # Load the audio file
+                audio = pydub.AudioSegment.from_wav(output_file)
+
+                # Play the audio
+                play_obj = simpleaudio.play_buffer(audio.raw_data, num_channels=audio.channels, bytes_per_sample=audio.sample_width, sample_rate=audio.frame_rate)
+                play_obj.wait_done()
+
+                sys.exit()
+
+        except sr.UnknownValueError:
+            #print("Speech recognition could not understand audio.")
+            pass
+        except sr.RequestError as e:
+            #print("Could not request results from Google Speech Recognition service; {0}".format(e))
+            pass
+
+
+
+
     def listenState(self): #kihyun
         #in this function you:
         #listen for 10 seconds using mic
@@ -160,22 +230,29 @@ class Pet:
         #In this state,
         #translate the audio file('audio.wav') into text
         #save text in self.lastAudioInput
-
-        # Initialize the recognizer
-        recognizer = sr.Recognizer()
+        # Set up the Speech to Text service
+        apikey = 'vIC0cr98ZS3tO7FxgceuzsjCrhDUjiMc2IbSEtSdEzjv'
+        url = 'https://api.au-syd.speech-to-text.watson.cloud.ibm.com/instances/cbab904d-34fb-41dc-a0fd-40cca19ff9e6'
+        authenticator = IAMAuthenticator(apikey)
+        speech_to_text = SpeechToTextV1(authenticator=authenticator)
+        speech_to_text.set_service_url(url)
 
         try:
-            with sr.AudioFile('audio.wav') as source:
-                audio = recognizer.record(source)
-                self.lastAudioInput = recognizer.recognize_google(audio)
+            with open('audio.wav', 'rb') as audio:
+                response = speech_to_text.recognize(audio=audio, content_type='audio/wav')
+                text = response.result['results'][0]['alternatives'][0]['transcript']
                 #return text
+
         #except sr.UnknownValueError:
         #    print("Speech recognition could not understand audio.")
 
         #NLP STUFF GOES HERE
         except:
             print("couldn't translate audio to text")
-            pass
+
+                self.lastAudioInput = text
+
+     
         
         self.petState = 2 #setting state to reply task state
 
@@ -206,9 +283,13 @@ class Pet:
 
 
     def seekAttentionState(self): #kihyun
-        #seeks attention
-        #takes the string "hi where are you"
-        #plays that through the speaker
+        # Set up the Text to Speech service
+        apikey = 'RL8bEBwfNsNhJ8uzZWGVWIWKZi_sIe2eptFqcGdytYXH'
+        url = 'https://api.au-syd.text-to-speech.watson.cloud.ibm.com/instances/5da2b1e5-0bde-4a8c-bd7a-ebb249bb968b'
+        authenticator = IAMAuthenticator(apikey)
+        text_to_speech = TextToSpeechV1(authenticator=authenticator)
+        text_to_speech.set_service_url(url)
+
 
         # Initialize the pyttsx3 engine
         engine = pyttsx3.init()
@@ -217,6 +298,30 @@ class Pet:
         engine.say(self.seekattention_text)
         engine.runAndWait()
         self.petState = 0
+
+        text = "Hi, where are you?"
+        output_file = "output.wav"
+
+        try:
+            # Perform text to speech conversion
+            response = text_to_speech.synthesize(text, accept='audio/wav', voice='en-US_AllisonV3Voice').get_result()
+
+            # Save the audio to a file
+            with open(output_file, 'wb') as audio_file:
+                audio_file.write(response.content)
+
+            #print("Text to Speech conversion completed.")
+            # Load the audio file
+            audio = pydub.AudioSegment.from_wav(output_file)
+
+            # Play the audio
+            play_obj = simpleaudio.play_buffer(audio.raw_data, num_channels=audio.channels, bytes_per_sample=audio.sample_width, sample_rate=audio.frame_rate)
+            play_obj.wait_done()
+
+        except Exception as e:
+            #print("Error converting text to speech:", str(e))
+        
+
 
 
     #-----------------------------------------------------------------------------------------------------------------------------------         
