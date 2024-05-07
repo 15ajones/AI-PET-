@@ -10,7 +10,7 @@ from googleapiclient.errors import HttpError
 # Define the Gmail API scopes
 
 def list_emails(service):
-
+    print("in list emails")
     results = service.users().messages().list(userId='me', maxResults=10).execute()
     messages = results.get('messages', [])
     if not messages:
